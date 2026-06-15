@@ -1,0 +1,269 @@
+variant: fcos
+version: 1.5.0
+
+# 👤 User & Authentication
+passwd:
+  users:
+    - name: core
+      ssh_authorized_keys:
+        - "ssh-ed25519 AAAAC3NzaC1... [REPLACE_WITH_YOUR_PUBLIC_KEY]"
+
+# 💾 Storage & Data Persistence
+storage:
+  disks:
+    - device: /dev/vdb
+      wipe_table: true
+      partitions:
+        - label: coder-home
+          number: 1
+  
+  filesystems:
+    - path: /home/coder
+      device: /dev/disk/by-partlabel/coder-home
+      format: xfs
+      with_mount_unit: true
+
+  # Conditionally point to the correct Dockerfile using Terraform template logic
+  links:
+    - path: /opt/coder/active.Dockerfile
+      target: /opt/coder/%{ if lower(tostring(install_de)) == "true" }workspace-desktop.Dockerfile%{ else }workspace.Dockerfile%{ endif }
+
+  files:
+    # 🐳 Containerization: Store Dockerfiles for reference
+    - path: /opt/coder/workspace.Dockerfile
+      mode: 0644
+      contents:
+        inline: |
+          ${workspace_dockerfile}
+
+    - path: /opt/coder/workspace-desktop.Dockerfile
+      mode: 0644
+      contents:
+        inline: |
+          ${workspace_desktop_dockerfile}
+
+    # 🌐 Networking & Security: Global Proxy
+    - path: /etc/systemd/system.conf.d/10-proxy.conf
+      mode: 0644
+      contents:
+        inline: |
+          [Manager]
+          DefaultEnvironment="HTTP_PROXY=http://${proxy_ip}:${proxy_port}" "HTTPS_PROXY=http://${proxy_ip}:${proxy_port}" "NO_PROXY=localhost,127.0.0.1"
+
+    - path: /etc/profile.d/proxy.sh
+      mode: 0644
+      contents:
+        inline: |
+          export HTTP_PROXY="http://${proxy_ip}:${proxy_port}"
+          export HTTPS_PROXY="http://${proxy_ip}:${proxy_port}"
+          export NO_PROXY="localhost,127.0.0.1"
+
+    # 🐳 Containerization: Unprivileged Ports Mapping
+    - path: /etc/sysctl.d/99-unprivileged-ports.conf
+      mode: 0644
+      contents:
+        inline: |
+          net.ipv4.ip_unprivileged_port_start=80
+
+    # 🌐 Networking & Security: Firewall
+    - path: /etc/sysconfig/nftables.conf
+      mode: 0644
+      contents:
+        inline: |
+          include "/etc/nftables/coder-firewall.nft"
+
+    - path: /etc/nftables/coder-firewall.nft
+      mode: 0644
+      contents:
+        inline: |
+          flush ruleset
+          table inet filter {
+            chain input {
+              type filter hook input priority 0; policy accept;
+            }
+            chain forward {
+              type filter hook forward priority 0; policy accept;
+            }
+            chain output {
+              type filter hook output priority 0; policy drop;
+              oif "lo" accept
+              udp dport 67 accept
+              udp dport 53 accept
+              tcp dport 53 accept
+              ip daddr ${proxy_ip} tcp dport ${proxy_port} accept
+              ct state established,related accept
+            }
+          }
+
+    # 🐳 Containerization: Coder Initialization Scripts
+    - path: /opt/coder/agent.env
+      mode: 0600
+      contents:
+        inline: |
+          CODER_AGENT_TOKEN="${coder_agent_token}"
+          CODER_AGENT_URL="${coder_agent_url}"
+
+    - path: /opt/coder/script.sh
+      mode: 0755
+      contents:
+        inline: |
+          #!/bin/bash
+          source /etc/profile.d/proxy.sh
+          source /opt/coder/agent.env
+          
+          # Initialize variables for Certificate and Podman configuration
+          HOME_DIR="/home/coder"
+          CERT_DIR="$HOME_DIR/certs"
+          mkdir -p "$HOME_DIR/.config/containers"
+          mkdir -p "$CERT_DIR"
+          
+          PODMAN_HTTP_PROXY="${HTTP_PROXY}"
+          PODMAN_HTTPS_PROXY="${HTTPS_PROXY}"
+          PODMAN_ALL_PROXY="socks5h://${proxy_ip}:${proxy_port}"
+          PODMAN_NO_PROXY="${NO_PROXY}"
+
+          HOMELAB_HOST="http://healthcheck.service.internal"
+          echo "Waiting for $HOMELAB_HOST (healthcheck) to be reachable via SOCKS5..."
+          until curl --socks5-hostname ${proxy_ip}:${proxy_port} -sS -I --max-time 5 -H 'Cache-Control: no-cache' -H 'Pragma: no-cache' "$HOMELAB_HOST/" 2>/dev/null | head -n1 | grep -qE 'HTTP/[^ ]+ 200'; do
+            echo "Waiting for $HOMELAB_HOST (healthcheck) to be reachable via SOCKS5..."
+            sleep 1
+          done
+          echo "$HOMELAB_HOST reachable via SOCKS5; continuing."
+
+          if curl --socks5-hostname ${proxy_ip}:${proxy_port} -fsSL -o "$CERT_DIR/root.crt" "http://stepca.service.internal/roots.pem"; then
+            echo "Downloaded root certificate via SOCKS5"
+          else
+            echo "Failed to download root certificate via SOCKS5; skipping (no direct fallback)"
+          fi
+
+          if curl --socks5-hostname ${proxy_ip}:${proxy_port} -fsSL -o "$CERT_DIR/intermed.crt" "http://stepca.service.internal/intermediates.pem"; then
+            echo "Downloaded intermediate certificate via SOCKS5"
+          else
+            echo "Failed to download intermediate certificate via SOCKS5; skipping (no direct fallback)"
+          fi
+
+          # Create combined bundle if available
+          if [ -f "$CERT_DIR/root.crt" ] || [ -f "$CERT_DIR/intermed.crt" ]; then
+            cat "$CERT_DIR/root.crt" "$CERT_DIR/intermed.crt" > "$CERT_DIR/ca-bundle.crt" 2>/dev/null || true
+          fi
+
+          # Write containers.conf in the user's config dir (use CERT_DIR variable)
+          cat > "$HOME_DIR/.config/containers/containers.conf" <<CONF
+          [engine]
+          compose_warning_logs = false
+
+          [containers]
+          netns = "host"
+          net = "host"
+          userns = "keep-id"
+          volumes = [
+            "${CERT_DIR}/ca-bundle.crt:/etc/ssl/certs/ca-certificates.crt:ro",
+            "${CERT_DIR}/ca-bundle.crt:/etc/pki/tls/certs/ca-bundle.crt:ro",
+            "${CERT_DIR}/ca-bundle.crt:/etc/ssl/cert.pem:ro",
+          ]
+          env = [
+            "NODE_EXTRA_CA_CERTS=/etc/ssl/certs/ca-certificates.crt",
+            "SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt",
+            "REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt",
+            "CURL_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt",
+            "HTTP_PROXY=${PODMAN_HTTP_PROXY}",
+            "HTTPS_PROXY=${PODMAN_HTTPS_PROXY}",
+            "ALL_PROXY=${PODMAN_ALL_PROXY}",
+            "NO_PROXY=${PODMAN_NO_PROXY}",
+            "http_proxy=${PODMAN_HTTP_PROXY}",
+            "https_proxy=${PODMAN_HTTPS_PROXY}",
+            "all_proxy=${PODMAN_ALL_PROXY}",
+            "no_proxy=${PODMAN_NO_PROXY}"
+          ]
+
+          [build]
+          env = [
+            "NODE_EXTRA_CA_CERTS=${CERT_DIR}/ca-bundle.crt",
+            "SSL_CERT_FILE=${CERT_DIR}/ca-bundle.crt",
+            "REQUESTS_CA_BUNDLE=${CERT_DIR}/ca-bundle.crt",
+            "CURL_CA_BUNDLE=${CERT_DIR}/ca-bundle.crt",
+            "HTTP_PROXY=${PODMAN_HTTP_PROXY}",
+            "HTTPS_PROXY=${PODMAN_HTTPS_PROXY}",
+            "ALL_PROXY=${PODMAN_ALL_PROXY}",
+            "NO_PROXY=${PODMAN_NO_PROXY}",
+            "http_proxy=${PODMAN_HTTP_PROXY}",
+            "https_proxy=${PODMAN_HTTPS_PROXY}",
+            "all_proxy=${PODMAN_ALL_PROXY}",
+            "no_proxy=${PODMAN_NO_PROXY}"
+          ]
+          CONF
+
+          # Write mounts.conf to instruct podman about host mount (used by some runtimes)
+          echo "${CERT_DIR}:${CERT_DIR}" > "$HOME_DIR/.config/containers/mounts.conf"
+          
+          # Refresh the Podman API daemon so the socket picks up the new configurations
+          systemctl --user restart podman.socket podman.service
+          
+          # Build the workspace image from the active Dockerfile
+          podman build -t custom-workspace -f /opt/coder/active.Dockerfile /opt/coder/
+          
+          exec podman run --rm --name coder-agent \
+            --network host \
+            -v /run/user/1000/podman/podman.sock:/var/run/docker.sock:Z \
+            -v /home/coder:/home/coder:Z \
+            -e CODER_AGENT_TOKEN="${CODER_AGENT_TOKEN}" \
+            -e CODER_AGENT_URL="${CODER_AGENT_URL}" \
+            -e HTTP_PROXY="${HTTP_PROXY}" \
+            -e HTTPS_PROXY="${HTTPS_PROXY}" \
+            -e NO_PROXY="${NO_PROXY}" \
+            custom-workspace
+
+systemd:
+  units:
+    - name: firewalld.service
+      enabled: false
+      mask: true
+
+    - name: nftables.service
+      enabled: true
+
+    - name: coder-init.service
+      enabled: true
+      contents: |
+        [Unit]
+        Description=Initialize Core Home and Podman Linger
+        Requires=home-coder.mount
+        After=home-coder.mount
+        Before=coder-agent.service systemd-user-sessions.service
+        ConditionFirstBoot=yes
+
+        [Service]
+        Type=oneshot
+        ExecStart=-/usr/bin/systemctl stop user@1000.service
+        ExecStart=/usr/bin/bash -c 'cp -a /home/core/. /home/coder/ || true'
+        # Set core user's home to the new persistent mount
+        ExecStart=/usr/sbin/usermod -d /home/coder core
+        ExecStart=/usr/bin/chown -R core:core /home/coder
+        ExecStart=/usr/bin/chmod 750 /home/coder
+        ExecStart=/usr/bin/rm -rf /home/core
+        ExecStart=/usr/bin/loginctl enable-linger core
+        ExecStart=/usr/bin/su - core -c 'systemctl --user enable --now podman.socket'
+
+        [Install]
+        WantedBy=multi-user.target
+
+    - name: coder-agent.service
+      enabled: true
+      contents: |
+        [Unit]
+        Description=Coder Agent Container
+        After=network-online.target coder-init.service
+        Wants=network-online.target
+        Requires=coder-init.service
+
+        [Service]
+        Type=simple
+        User=core
+        Group=core
+        Environment="XDG_RUNTIME_DIR=/run/user/1000"
+        ExecStart=/opt/coder/script.sh
+        Restart=always
+        RestartSec=10
+
+        [Install]
+        WantedBy=multi-user.target

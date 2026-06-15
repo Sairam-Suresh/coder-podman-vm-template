@@ -1,0 +1,83 @@
+name: Test and Publish Coder Template
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  test-and-publish:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ github.workspace }}
+    env:
+      TEMPLATE_NAME: "podman-vm"
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Convert Butane to Ignition Config
+        run: |
+          podman run --rm -v ${PWD}:/workspace:z quay.io/coreos/butane:release --pretty --strict /workspace/config.bu --output /workspace/config.ign
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: latest
+      
+      - name: Validate Terraform template
+        run: terraform init && terraform validate
+
+      - name: Get short commit SHA to use as template version name
+        id: name
+        run: echo "version_name=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Get latest commit title to use as template version description
+        id: message
+        run:
+          echo "pr_title=$(git log --format=%s -n 1 ${{ github.sha }})" >> $GITHUB_OUTPUT
+
+      - name: Tailscale
+        uses: tailscale/github-action@v4
+        with:
+            oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+            oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+            tags: tag:ci
+            ping: homelab  
+
+      - name: Install Custom CA Certificate (Ubuntu)
+        run: |
+          # Decode the certificate from secrets into the OS trusted certificate path
+          echo "${{ secrets.INTERNAL_CA_CERT }}" | base64 --decode | sudo tee /usr/local/share/ca-certificates/internal-ca.crt
+          
+          # Update the system trust store
+          sudo update-ca-certificates
+          
+          # Optional: Set environment variables for tools that bypass the default OS trust store
+          echo "SSL_CERT_DIR=/etc/ssl/certs" >> $GITHUB_ENV
+          echo "NODE_EXTRA_CA_CERTS=/etc/ssl/certs/ca-certificates.crt" >> $GITHUB_ENV
+
+      - name: Set up Coder CLI
+        uses: coder/setup-action@v1
+        with:
+          access_url: "https://coder.service.internal"
+          coder_session_token: ${{ secrets.CODER_SESSION_TOKEN }}
+
+      - name: Push template to Coder
+        run: |
+          pwd
+          ls -la
+          TEMPLATE_SRC_DIR="$RUNNER_TEMP/template-src"
+          rm -rf "$TEMPLATE_SRC_DIR"
+          mkdir -p "$TEMPLATE_SRC_DIR"
+          cp -r "$GITHUB_WORKSPACE/" "$TEMPLATE_SRC_DIR/"
+          
+          ls -la "$TEMPLATE_SRC_DIR"
+          coder templates push "$TEMPLATE_NAME" --directory "$TEMPLATE_SRC_DIR" --activate=false --name ${{ steps.name.outputs.version_name }} --message "${{ steps.message.outputs.pr_title }}" --ignore-lockfile --yes
+
+      - name: Promote template version
+        if: success()
+        run: |
+          coder template version promote --template=$TEMPLATE_NAME --template-version=${{ steps.name.outputs.version_name }}
