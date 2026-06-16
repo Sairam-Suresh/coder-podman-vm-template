@@ -28,37 +28,11 @@ storage:
       group:
         name: core
 
-  links:
-    - path: /opt/coder/active.Dockerfile
-      user:
-        name: core
-      group:
-        name: core
-      target: /opt/coder/%{ if lower(tostring(install_de)) == "true" }workspace-desktop.Dockerfile%{ else }workspace.Dockerfile%{ endif }
-
   files:
     - path: /etc/hostname
       mode: 0644
       contents:
         inline: ${hostname}
-
-    - path: /opt/coder/workspace.Dockerfile
-      mode: 0644
-      user:
-        name: core
-      group:
-        name: core
-      contents:
-        source: data:text/plain;charset=utf-8;base64,${workspace_dockerfile_b64}
-
-    - path: /opt/coder/workspace-desktop.Dockerfile
-      mode: 0644
-      user:
-        name: core
-      group:
-        name: core
-      contents:
-        source: data:text/plain;charset=utf-8;base64,${workspace_desktop_dockerfile_b64}
 
     - path: /etc/systemd/system.conf.d/10-proxy.conf
       mode: 0644
@@ -148,6 +122,9 @@ storage:
           WORKSPACE_DIR="/var/home/coder"
           CERT_DIR="$WORKSPACE_DIR/certs"
           
+          # Target image from GHCR using Terraform templating
+          TARGET_IMAGE="%{ if lower(tostring(install_de)) == "true" }ghcr.io/sairam-suresh/workspace-desktop:latest%{ else }ghcr.io/sairam-suresh/workspace:latest%{ endif }"
+          
           # Write Podman configurations to the core user's actual home
           mkdir -p "$CORE_HOME/.config/containers"
           mkdir -p "$CERT_DIR"
@@ -207,37 +184,10 @@ storage:
             "all_proxy=$${PODMAN_ALL_PROXY}",
             "no_proxy=$${PODMAN_NO_PROXY}"
           ]
-
-          [build]
-          args = [
-            "HTTP_PROXY=$${PODMAN_HTTP_PROXY}",
-            "HTTPS_PROXY=$${PODMAN_HTTPS_PROXY}",
-            "ALL_PROXY=$${PODMAN_ALL_PROXY}",
-            "NO_PROXY=$${PODMAN_NO_PROXY}",
-            "http_proxy=$${PODMAN_HTTP_PROXY}",
-            "https_proxy=$${PODMAN_HTTPS_PROXY}",
-            "all_proxy=$${PODMAN_ALL_PROXY}",
-            "no_proxy=$${PODMAN_NO_PROXY}"
-          ]
-          env = [
-            "NODE_EXTRA_CA_CERTS=/etc/custom-certs/ca-bundle.crt",
-            "SSL_CERT_FILE=/etc/custom-certs/ca-bundle.crt",
-            "REQUESTS_CA_BUNDLE=/etc/custom-certs/ca-bundle.crt",
-            "CURL_CA_BUNDLE=/etc/custom-certs/ca-bundle.crt",
-            "HTTP_PROXY=$${PODMAN_HTTP_PROXY}",
-            "HTTPS_PROXY=$${PODMAN_HTTPS_PROXY}",
-            "ALL_PROXY=$${PODMAN_ALL_PROXY}",
-            "NO_PROXY=$${PODMAN_NO_PROXY}",
-            "http_proxy=$${PODMAN_HTTP_PROXY}",
-            "https_proxy=$${PODMAN_HTTPS_PROXY}",
-            "all_proxy=$${PODMAN_ALL_PROXY}",
-            "no_proxy=$${PODMAN_NO_PROXY}"
-          ]
           CONF
-
-          # Write registries.conf to allow unqualified docker.io pulls
+          
           cat > "$CORE_HOME/.config/containers/registries.conf" <<REG
-          unqualified-search-registries = ["docker.io"]
+          unqualified-search-registries = ["docker.io", "ghcr.io"]
           REG
 
           # Write mounts.conf to instruct podman about host mount (used by some runtimes)
@@ -246,16 +196,10 @@ storage:
           # Refresh the Podman API daemon so the socket picks up the new configurations
           systemctl --user restart podman.socket podman.service
           
-          # Build the workspace image from the active Dockerfile
-          podman build -t custom-workspace:latest \
-            --build-arg HTTP_PROXY="$${PODMAN_HTTP_PROXY}" \
-            --build-arg HTTPS_PROXY="$${PODMAN_HTTPS_PROXY}" \
-            --build-arg NO_PROXY="$${PODMAN_NO_PROXY}" \
-            --build-arg http_proxy="$${PODMAN_HTTP_PROXY}" \
-            --build-arg https_proxy="$${PODMAN_HTTPS_PROXY}" \
-            --build-arg no_proxy="$${PODMAN_NO_PROXY}" \
-            -f /opt/coder/active.Dockerfile /opt/coder/
+          # Pull the target image to ensure it is up to date locally
+          podman pull --policy always "$TARGET_IMAGE"
           
+          # Run the pre-built workspace image
           exec podman run --rm --name coder-agent \
             --network host \
             --security-opt label=disable \
@@ -268,7 +212,7 @@ storage:
             -e HTTP_PROXY="$${HTTP_PROXY}" \
             -e HTTPS_PROXY="$${HTTPS_PROXY}" \
             -e NO_PROXY="$${NO_PROXY}" \
-            custom-workspace:latest \
+            "$TARGET_IMAGE" \
             /opt/coder/agent.sh
 
 systemd:

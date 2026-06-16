@@ -54,8 +54,6 @@ locals {
   # Set workdir to the 'coder' user inside the container
   workdir     = "/home/coder/${local.folder_name}"
 
-  workspace_dockerfile         = file("${path.module}/images/workspace.Dockerfile")
-  workspace_desktop_dockerfile = file("${path.module}/images/workspace-desktop.Dockerfile")
   proxy_ip                     = var.proxy_ip
   proxy_port                   = var.proxy_port
 }
@@ -164,8 +162,6 @@ data "ct_config" "ign" {
     git_committer_email         = data.coder_workspace_owner.me.email
     coder_workdir               = local.workdir
     install_de                  = data.coder_parameter.install_de.value
-    workspace_dockerfile_b64    = base64encode(local.workspace_dockerfile)
-    workspace_desktop_dockerfile_b64 = base64encode(local.workspace_desktop_dockerfile)
     proxy_ip                    = local.proxy_ip
     proxy_port                  = local.proxy_port
     password_hash               = var.password_hash
