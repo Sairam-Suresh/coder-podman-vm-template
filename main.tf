@@ -50,7 +50,8 @@ locals {
   
   # Calculate the working directory to avoid circular dependencies with the git-clone module
   folder_name = data.coder_parameter.enable_git_clone.value == "true" ? replace(basename(try(data.coder_parameter.repo_url[0].value, "")), "/\\.git$/", "") : try(data.coder_parameter.manual_folder_name[0].value, "")
-  workdir     = "/home/${local.username}/${local.folder_name}"
+  
+  workdir     = "/home/coder/${local.folder_name}"
 
   workspace_dockerfile         = file("${path.module}/images/workspace.Dockerfile")
   workspace_desktop_dockerfile = file("${path.module}/images/workspace-desktop.Dockerfile")
@@ -162,18 +163,18 @@ data "ct_config" "ign" {
     git_committer_email         = data.coder_workspace_owner.me.email
     coder_workdir               = local.workdir
     install_de                  = data.coder_parameter.install_de.value
-    workspace_dockerfile_b64        = base64encode(local.workspace_dockerfile)
+    workspace_dockerfile_b64    = base64encode(local.workspace_dockerfile)
     workspace_desktop_dockerfile_b64 = base64encode(local.workspace_desktop_dockerfile)
     proxy_ip                    = local.proxy_ip
     proxy_port                  = local.proxy_port
     password_hash               = var.password_hash
+    hostname                    = local.resource_name
   })
 
   strict       = true
   pretty_print = true
 }
 
-# Libvirt Combustion resource to handle the Ignition configuration
 resource "libvirt_ignition" "main" {
   name  = "${local.resource_name}-ign-intermediate"
   count = data.coder_workspace.me.start_count
@@ -198,19 +199,12 @@ resource "libvirt_volume" "ignition" {
   }
 }
 
-# ----------------------------
-# System Disk Trigger (Fedora CoreOS is immutable, only trigger on base image change)
-# ----------------------------
 resource "terraform_data" "os_disk_trigger" {
   triggers_replace = {
-    # FCOS is immutable - only trigger replacement if the base image path changes
     base_image_path = var.base_image_path
   }
 }
 
-# ----------------------------
-# System Disk (Fedora CoreOS - Immutable, persists across provisioning)
-# ----------------------------
 resource "libvirt_volume" "os_disk" {
   name     = "${local.resource_name}-os"
   pool     = "default"
@@ -227,14 +221,11 @@ resource "libvirt_volume" "os_disk" {
 
   lifecycle {
     replace_triggered_by = [
-      terraform_data.os_disk_trigger.id # Only triggers on base image change
+      terraform_data.os_disk_trigger.id
     ]
   }
 }
 
-# ----------------------------
-# Persistent User Data Disk 
-# ----------------------------
 resource "libvirt_volume" "userdata_disk" {
   name     = "${local.resource_name}-userdata"
   pool     = "default"
@@ -262,7 +253,6 @@ resource "libvirt_domain" "main" {
   lifecycle {
     replace_triggered_by = [
       terraform_data.os_disk_trigger.id,
-      # local_file.ignition[count.index].id # Trigger rebuild if the file changes
     ]
   }
 
@@ -283,16 +273,12 @@ resource "libvirt_domain" "main" {
     acpi = true
   }
 
-  # ----------------------------
-  # Mount Ignition via fw_cfg file
-  # ----------------------------
   sys_info = [
     {
       fw_cfg = {
         entry = [
           {
             name  = "opt/com.coreos/config"
-            # Double-escape commas to prevent QEMU from splitting the JSON as CLI arguments
             file  = libvirt_volume.ignition[count.index].path
             value = ""
           }
@@ -304,7 +290,6 @@ resource "libvirt_domain" "main" {
   devices = {
     disks = [
       {
-        # vda: The OS disk (Fedora CoreOS)
         driver = { type = "qcow2" }
         source = {
           volume = {
@@ -315,7 +300,6 @@ resource "libvirt_domain" "main" {
         target = { bus = "virtio", dev = "vda" }
       },
       {
-        # vdb: The Persistent User Data disk
         driver = { type = "qcow2" }
         source = {
           volume = {
@@ -382,10 +366,10 @@ resource "coder_agent" "main" {
     GIT_AUTHOR_EMAIL    = "${data.coder_workspace_owner.me.email}"
     GIT_COMMITTER_NAME  = coalesce(data.coder_workspace_owner.me.full_name, data.coder_workspace_owner.me.name)
     GIT_COMMITTER_EMAIL = "${data.coder_workspace_owner.me.email}"
-    DOCKER_HOST         = "unix:///run/user/1001/podman/podman.sock"
+    DOCKER_HOST         = "unix:///var/run/docker.sock"
   }
 
-metadata {
+  metadata {
     display_name = "CPU Usage"
     key          = "0_cpu_usage"
     script       = "coder stat cpu"
@@ -436,7 +420,6 @@ metadata {
   metadata {
     display_name = "Load Average (Host)"
     key          = "5_load_host"
-    # get load avg scaled by number of cores
     script   = <<EOT
       echo "`cat /proc/loadavg | awk '{ print $1 }'` `nproc`" | awk '{ printf "%0.2f", $1/$2 }'
     EOT
@@ -545,7 +528,7 @@ module "git-clone" {
   version  = "~> 1.0"
   agent_id = coder_agent.main[count.index].id
   url      = data.coder_parameter.repo_url[0].value
-  base_dir = "/home/${local.username}" 
+  base_dir = "/home/coder" 
 }
 
 module "kasmvnc" {

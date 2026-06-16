@@ -4,8 +4,6 @@ version: 1.5.0
 passwd:
   users:
     - name: core
-      # Replace this with the ENTIRE output of your generator command.
-      # (The output will naturally contain the $6$, the salt, and the hash).
       password_hash: ${password_hash}
 #      ssh_authorized_keys:
 #        - "ssh-ed25519 AAAAC3NzaC1... [REPLACE_WITH_YOUR_PUBLIC_KEY]"
@@ -13,22 +11,17 @@ passwd:
 storage:
   disks:
     - device: /dev/vdb
-      # CRITICAL: Do not wipe the partition table if it already exists, 
-      # ensuring data is kept safe across OS rebuilds!
       wipe_table: false
       partitions:
         - label: coder-home
           number: 1
   
   filesystems:
-    # Mount the persistent disk to /var/home so BOTH the core user's home 
-    # and the /var/home/coder workspace folder are persisted.
     - path: /var/home
       device: /dev/disk/by-partlabel/coder-home
       format: xfs
       with_mount_unit: true
 
-  # Explicitly declare the directory to ensure it is owned by the core user
   directories:
     - path: /opt/coder
       mode: 0755
@@ -37,7 +30,6 @@ storage:
       group:
         name: core
 
-  # Conditionally point to the correct Dockerfile using Terraform template logic
   links:
     - path: /opt/coder/active.Dockerfile
       user:
@@ -47,6 +39,12 @@ storage:
       target: /opt/coder/%{ if lower(tostring(install_de)) == "true" }workspace-desktop.Dockerfile%{ else }workspace.Dockerfile%{ endif }
 
   files:
+    # FIX 2: Explicitly define hostname directly in the system configuration
+    - path: /etc/hostname
+      mode: 0644
+      contents:
+        inline: ${hostname}
+
     - path: /opt/coder/workspace.Dockerfile
       mode: 0644
       user:
@@ -183,7 +181,6 @@ storage:
           fi
 
           # Create combined bundle: Host's public CAs + Homelab CAs
-          # This ensures tools overriding the default cert path still trust the public internet!
           touch "$CERT_DIR/root.crt" "$CERT_DIR/intermed.crt"
           cat /etc/pki/tls/certs/ca-bundle.crt "$CERT_DIR/root.crt" "$CERT_DIR/intermed.crt" > "$CERT_DIR/ca-bundle.crt" 2>/dev/null || true
 
@@ -264,7 +261,8 @@ storage:
           
           exec podman run --rm --name coder-agent \
             --network host \
-            -v /run/user/1000/podman/podman.sock:/var/run/docker.sock:Z \
+            --security-opt label=disable \
+            -v /run/user/1000/podman/podman.sock:/var/run/docker.sock \
             -v /var/home/coder:/home/coder:Z \
             -v /opt/coder/agent.sh:/opt/coder/agent.sh:ro,z \
             -e CODER_AGENT_TOKEN="$${CODER_AGENT_TOKEN}" \
