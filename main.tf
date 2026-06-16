@@ -7,6 +7,10 @@ terraform {
       source  = "dmacvicar/libvirt"
       version = "~> 0.9.5"
     }
+    ct = {
+      source  = "poseidon/ct"
+      version = "0.14.0"
+    }
   }
 }
 
@@ -19,9 +23,18 @@ data "coder_provisioner" "me" {}
 data "coder_workspace" "me" {}
 data "coder_workspace_owner" "me" {}
 data "coder_task" "me" {}
-
 data "coder_external_auth" "github" {
    id = "github"
+}
+
+variable "proxy_ip" {
+  type        = string
+  description = "IP address of the HTTP/HTTPS proxy server."
+}
+
+variable "proxy_port" {
+  type        = number
+  description = "Port number of the proxy server."
 }
 
 locals {
@@ -33,6 +46,11 @@ locals {
   # Calculate the working directory to avoid circular dependencies with the git-clone module
   folder_name = data.coder_parameter.enable_git_clone.value == "true" ? replace(basename(try(data.coder_parameter.repo_url[0].value, "")), "/\\.git$/", "") : try(data.coder_parameter.manual_folder_name[0].value, "")
   workdir     = "/home/${local.username}/${local.folder_name}"
+
+  workspace_dockerfile         = file("${path.module}/images/workspace.Dockerfile")
+  workspace_desktop_dockerfile = file("${path.module}/images/workspace-desktop.Dockerfile")
+  proxy_ip                     = var.proxy_ip
+  proxy_port                   = var.proxy_port
 }
 
 resource "coder_ai_task" "task" {
@@ -127,28 +145,7 @@ data "coder_parameter" "manual_folder_name" {
   default      = "my-workspace"
 }
 
-variable "proxy_ip" {
-  type        = string
-  description = "IP address of the HTTP/HTTPS proxy server."
-}
-
-variable "proxy_port" {
-  type        = number
-  description = "Port number of the proxy server."
-}
-
-# Read Dockerfile contents for substitution
-locals {
-  workspace_dockerfile         = file("${path.module}/images/workspace.Dockerfile")
-  workspace_desktop_dockerfile = file("${path.module}/images/workspace-desktop.Dockerfile")
-  proxy_ip                     = var.proxy_ip
-  proxy_port                   = var.proxy_port
-}
-
-# Libvirt Combustion resource to handle the Ignition configuration
-resource "libvirt_combustion" "main" {
-  count = data.coder_workspace.me.start_count
-
+data "ct_config" "ign" {
   content = templatefile("${path.module}/config.ign", {
     coder_agent_token           = coder_agent.main[count.index].token
     coder_agent_init_script_b64 = base64encode(coder_agent.main[count.index].init_script)
@@ -163,6 +160,17 @@ resource "libvirt_combustion" "main" {
     proxy_ip                    = local.proxy_ip
     proxy_port                  = local.proxy_port
   })
+
+  strict       = true
+  pretty_print = true
+}
+
+# Libvirt Combustion resource to handle the Ignition configuration
+resource "libvirt_combustion" "main" {
+  name  = "${local.resource_name}-ign"
+  count = data.coder_workspace.me.start_count
+
+  content = data.ct_config.ign.rendered
 
   lifecycle {
     replace_triggered_by = [local_file.ignition_config[count.index].id]
