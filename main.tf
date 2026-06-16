@@ -146,6 +146,7 @@ data "coder_parameter" "manual_folder_name" {
 }
 
 data "ct_config" "ign" {
+  count = data.coder_workspace.me.start_count
   content = templatefile("${path.module}/config.ign", {
     coder_agent_token           = coder_agent.main[count.index].token
     coder_agent_init_script_b64 = base64encode(coder_agent.main[count.index].init_script)
