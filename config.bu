@@ -182,10 +182,10 @@ storage:
             echo "Failed to download intermediate certificate via SOCKS5; skipping (no direct fallback)"
           fi
 
-          # Create combined bundle if available
-          if [ -f "$CERT_DIR/root.crt" ] || [ -f "$CERT_DIR/intermed.crt" ]; then
-            cat "$CERT_DIR/root.crt" "$CERT_DIR/intermed.crt" > "$CERT_DIR/ca-bundle.crt" 2>/dev/null || true
-          fi
+          # Create combined bundle: Host's public CAs + Homelab CAs
+          # This ensures tools overriding the default cert path still trust the public internet!
+          touch "$CERT_DIR/root.crt" "$CERT_DIR/intermed.crt"
+          cat /etc/pki/tls/certs/ca-bundle.crt "$CERT_DIR/root.crt" "$CERT_DIR/intermed.crt" > "$CERT_DIR/ca-bundle.crt" 2>/dev/null || true
 
           # Write containers.conf in the core user's config dir
           cat > "$CORE_HOME/.config/containers/containers.conf" <<CONF
@@ -197,15 +197,13 @@ storage:
           net = "host"
           userns = "keep-id"
           volumes = [
-            "$${CERT_DIR}/ca-bundle.crt:/etc/ssl/certs/ca-certificates.crt:ro",
-            "$${CERT_DIR}/ca-bundle.crt:/etc/pki/tls/certs/ca-bundle.crt:ro",
-            "$${CERT_DIR}/ca-bundle.crt:/etc/ssl/cert.pem:ro",
+            "$${CERT_DIR}/ca-bundle.crt:/etc/custom-certs/ca-bundle.crt:ro,z"
           ]
           env = [
-            "NODE_EXTRA_CA_CERTS=/etc/ssl/certs/ca-certificates.crt",
-            "SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt",
-            "REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt",
-            "CURL_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt",
+            "NODE_EXTRA_CA_CERTS=/etc/custom-certs/ca-bundle.crt",
+            "SSL_CERT_FILE=/etc/custom-certs/ca-bundle.crt",
+            "REQUESTS_CA_BUNDLE=/etc/custom-certs/ca-bundle.crt",
+            "CURL_CA_BUNDLE=/etc/custom-certs/ca-bundle.crt",
             "HTTP_PROXY=$${PODMAN_HTTP_PROXY}",
             "HTTPS_PROXY=$${PODMAN_HTTPS_PROXY}",
             "ALL_PROXY=$${PODMAN_ALL_PROXY}",
@@ -228,10 +226,10 @@ storage:
             "no_proxy=$${PODMAN_NO_PROXY}"
           ]
           env = [
-            "NODE_EXTRA_CA_CERTS=$${CERT_DIR}/ca-bundle.crt",
-            "SSL_CERT_FILE=$${CERT_DIR}/ca-bundle.crt",
-            "REQUESTS_CA_BUNDLE=$${CERT_DIR}/ca-bundle.crt",
-            "CURL_CA_BUNDLE=$${CERT_DIR}/ca-bundle.crt",
+            "NODE_EXTRA_CA_CERTS=/etc/custom-certs/ca-bundle.crt",
+            "SSL_CERT_FILE=/etc/custom-certs/ca-bundle.crt",
+            "REQUESTS_CA_BUNDLE=/etc/custom-certs/ca-bundle.crt",
+            "CURL_CA_BUNDLE=/etc/custom-certs/ca-bundle.crt",
             "HTTP_PROXY=$${PODMAN_HTTP_PROXY}",
             "HTTPS_PROXY=$${PODMAN_HTTPS_PROXY}",
             "ALL_PROXY=$${PODMAN_ALL_PROXY}",
