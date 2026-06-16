@@ -166,7 +166,7 @@ data "ct_config" "ign" {
     workspace_desktop_dockerfile_b64 = base64encode(local.workspace_desktop_dockerfile)
     proxy_ip                    = local.proxy_ip
     proxy_port                  = local.proxy_port
-    password_hash               = base64decode(var.password_hash)
+    password_hash               = var.password_hash
   })
 
   strict       = true
