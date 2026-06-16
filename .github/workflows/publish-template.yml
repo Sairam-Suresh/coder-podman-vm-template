@@ -27,6 +27,13 @@ jobs:
         with:
           terraform_version: latest
       
+      - name: Create Terraform secrets file
+        run: |
+          cat > secrets.auto.tfvars <<EOF
+          proxy_ip = "${{ secrets.PROXY_IP }}"
+          proxy_port = "${{ secrets.PROXY_PORT }}"
+          EOF
+      
       - name: Validate Terraform template
         run: terraform init && terraform validate
 
