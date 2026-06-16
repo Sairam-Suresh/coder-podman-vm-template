@@ -123,10 +123,10 @@ storage:
           mkdir -p "$HOME_DIR/.config/containers"
           mkdir -p "$CERT_DIR"
           
-          PODMAN_HTTP_PROXY="${HTTP_PROXY}"
-          PODMAN_HTTPS_PROXY="${HTTPS_PROXY}"
+          PODMAN_HTTP_PROXY="$${HTTP_PROXY}"
+          PODMAN_HTTPS_PROXY="$${HTTPS_PROXY}"
           PODMAN_ALL_PROXY="socks5h://${proxy_ip}:${proxy_port}"
-          PODMAN_NO_PROXY="${NO_PROXY}"
+          PODMAN_NO_PROXY="$${NO_PROXY}"
 
           HOMELAB_HOST="http://healthcheck.service.internal"
           echo "Waiting for $HOMELAB_HOST (healthcheck) to be reachable via SOCKS5..."
@@ -172,14 +172,14 @@ storage:
             "SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt",
             "REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt",
             "CURL_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt",
-            "HTTP_PROXY=${PODMAN_HTTP_PROXY}",
-            "HTTPS_PROXY=${PODMAN_HTTPS_PROXY}",
-            "ALL_PROXY=${PODMAN_ALL_PROXY}",
-            "NO_PROXY=${PODMAN_NO_PROXY}",
-            "http_proxy=${PODMAN_HTTP_PROXY}",
-            "https_proxy=${PODMAN_HTTPS_PROXY}",
-            "all_proxy=${PODMAN_ALL_PROXY}",
-            "no_proxy=${PODMAN_NO_PROXY}"
+            "HTTP_PROXY=$${PODMAN_HTTP_PROXY}",
+            "HTTPS_PROXY=$${PODMAN_HTTPS_PROXY}",
+            "ALL_PROXY=$${PODMAN_ALL_PROXY}",
+            "NO_PROXY=$${PODMAN_NO_PROXY}",
+            "http_proxy=$${PODMAN_HTTP_PROXY}",
+            "https_proxy=$${PODMAN_HTTPS_PROXY}",
+            "all_proxy=$${PODMAN_ALL_PROXY}",
+            "no_proxy=$${PODMAN_NO_PROXY}"
           ]
 
           [build]
@@ -188,14 +188,14 @@ storage:
             "SSL_CERT_FILE=${CERT_DIR}/ca-bundle.crt",
             "REQUESTS_CA_BUNDLE=${CERT_DIR}/ca-bundle.crt",
             "CURL_CA_BUNDLE=${CERT_DIR}/ca-bundle.crt",
-            "HTTP_PROXY=${PODMAN_HTTP_PROXY}",
-            "HTTPS_PROXY=${PODMAN_HTTPS_PROXY}",
-            "ALL_PROXY=${PODMAN_ALL_PROXY}",
-            "NO_PROXY=${PODMAN_NO_PROXY}",
-            "http_proxy=${PODMAN_HTTP_PROXY}",
-            "https_proxy=${PODMAN_HTTPS_PROXY}",
-            "all_proxy=${PODMAN_ALL_PROXY}",
-            "no_proxy=${PODMAN_NO_PROXY}"
+            "HTTP_PROXY=$${PODMAN_HTTP_PROXY}",
+            "HTTPS_PROXY=$${PODMAN_HTTPS_PROXY}",
+            "ALL_PROXY=$${PODMAN_ALL_PROXY}",
+            "NO_PROXY=$${PODMAN_NO_PROXY}",
+            "http_proxy=$${PODMAN_HTTP_PROXY}",
+            "https_proxy=$${PODMAN_HTTPS_PROXY}",
+            "all_proxy=$${PODMAN_ALL_PROXY}",
+            "no_proxy=$${PODMAN_NO_PROXY}"
           ]
           CONF
 
@@ -215,8 +215,8 @@ storage:
             -v /opt/coder/agent.sh:/opt/coder/agent.sh:ro,z \
             -e CODER_AGENT_TOKEN="${CODER_AGENT_TOKEN}" \
             -e CODER_AGENT_URL="${CODER_AGENT_URL}" \
-            -e HTTP_PROXY="${HTTP_PROXY}" \
-            -e HTTPS_PROXY="${HTTPS_PROXY}" \
+            -e HTTP_PROXY="$${HTTP_PROXY}" \
+            -e HTTPS_PROXY="$${HTTPS_PROXY}" \
             -e NO_PROXY="${NO_PROXY}" \
             custom-workspace \
             /opt/coder/agent.sh
