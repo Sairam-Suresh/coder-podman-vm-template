@@ -176,7 +176,7 @@ resource "libvirt_combustion" "main" {
   content = data.ct_config.ign[count.index].rendered
 
   lifecycle {
-    replace_triggered_by = [local_file.ignition_config[count.index].id]
+    replace_triggered_by = [data.ct_config.ign[count.index].rendered]
   }
 }
 
