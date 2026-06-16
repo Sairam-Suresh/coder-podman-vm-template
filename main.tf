@@ -277,7 +277,7 @@ resource "libvirt_domain" "main" {
     disks = [
       {
         # The ignition for CoreOS
-        # device = "cdrom"
+        device = "cdrom"
         driver = { type = "raw" },
         source = {
           volume = {
@@ -285,10 +285,10 @@ resource "libvirt_domain" "main" {
             volume = libvirt_volume.ignition[count.index].name
           }
         },
-        # target = {
-        #   dev = "sda"
-        #   bus = "sata"
-        # }
+        target = {
+          dev = "sda"
+          bus = "sata"
+        }
       },
       {
         # vda: The OS disk (Fedora CoreOS)
