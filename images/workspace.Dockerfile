@@ -47,7 +47,7 @@ ENV LANGUAGE=en_US.UTF-8
 ENV LC_ALL=en_US.UTF-8
 
 RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && \
-      sudo apt-get install -y nodejs && \
+      apt-get install -y nodejs && \
       rm -rf /var/lib/apt/lists/*
 
 # Add coder user
