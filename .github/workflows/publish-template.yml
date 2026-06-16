@@ -83,6 +83,7 @@ jobs:
           cp "$GITHUB_WORKSPACE/main.tf" "$TEMPLATE_SRC_DIR/"
           cp "$GITHUB_WORKSPACE/README.md" "$TEMPLATE_SRC_DIR/"
           cp "$GITHUB_WORKSPACE/config.bu" "$TEMPLATE_SRC_DIR/"
+          cp "$GITHUB_WORKSPACE/secrets.auto.tfvars" "$TEMPLATE_SRC_DIR/"
           cp -r "$GITHUB_WORKSPACE/images" "$TEMPLATE_SRC_DIR/images"
           
           ls -la "$TEMPLATE_SRC_DIR"
