@@ -396,14 +396,6 @@ resource "coder_agent" "main" {
   }
 
   metadata {
-    display_name = "Home Disk"
-    key          = "4_home_disk"
-    script       = "coder stat disk --path $${HOME}"
-    interval     = 60
-    timeout      = 1
-  }
-
-  metadata {
     display_name = "CPU Usage (Host)"
     key          = "2_cpu_usage_host"
     script       = "coder stat cpu --host"
