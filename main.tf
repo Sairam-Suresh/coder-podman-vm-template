@@ -332,27 +332,27 @@ resource "libvirt_domain" "main" {
       {
         vnc = { auto_port = true }
       },
-      {
-        egl_headless = {
-          gl = {
-            render_node = "/dev/dri/renderD128"
-          }
-        }
-      }
+      # {
+      #   egl_headless = {
+      #     gl = {
+      #       render_node = "/dev/dri/renderD128"
+      #     }
+      #   }
+      # }
     ]
 
-    videos = [
-      {
-        model = {
-          type    = "virtio"
-          primary = "yes"
-          heads   = 1
-          accel = {
-            accel3d     = "yes"
-          }
-        }
-      }
-    ]
+    # videos = [
+    #   {
+    #     model = {
+    #       type    = "virtio"
+    #       primary = "yes"
+    #       heads   = 1
+    #       accel = {
+    #         accel3d     = "yes"
+    #       }
+    #     }
+    #   }
+    # ]
   }
 }
 
