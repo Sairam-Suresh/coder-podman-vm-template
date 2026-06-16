@@ -261,7 +261,7 @@ resource "libvirt_domain" "main" {
   lifecycle {
     replace_triggered_by = [
       terraform_data.os_disk_trigger.id,
-      local_file.ignition[count.index].id # Trigger rebuild if the file changes
+      # local_file.ignition[count.index].id # Trigger rebuild if the file changes
     ]
   }
 
@@ -286,8 +286,8 @@ resource "libvirt_domain" "main" {
         entry = [
           {
             name  = "opt/com.coreos/config"
-            file  = local_file.ignition[count.index].filename
-            value = "" # Required by Terraform provider schema, ignored by QEMU
+            # Double-escape commas to prevent QEMU from splitting the JSON as CLI arguments
+            value = replace(data.ct_config.ign[count.index].rendered, ",", ",,")
           }
         ]
       }
