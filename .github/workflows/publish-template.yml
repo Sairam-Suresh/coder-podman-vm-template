@@ -18,10 +18,6 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # - name: Convert Butane to Ignition Config
-      #   run: |
-      #     podman run --rm -v ${PWD}:/workspace:z quay.io/coreos/butane:release --pretty --strict /workspace/config.bu --output /workspace/config.ign
-
       - name: Set up Terraform
         uses: hashicorp/setup-terraform@v2
         with:
