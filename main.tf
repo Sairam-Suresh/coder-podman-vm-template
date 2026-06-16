@@ -157,7 +157,7 @@ resource "libvirt_combustion" "main" {
     git_committer_name          = coalesce(data.coder_workspace_owner.me.full_name, data.coder_workspace_owner.me.name)
     git_committer_email         = data.coder_workspace_owner.me.email
     coder_workdir               = local.workdir
-    install_de                  = coder_parameter.install_de.value
+    install_de                  = data.coder_parameter.install_de.value
     workspace_dockerfile        = local.workspace_dockerfile
     workspace_desktop_dockerfile = local.workspace_desktop_dockerfile
     proxy_ip                    = local.proxy_ip
