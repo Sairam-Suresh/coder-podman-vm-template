@@ -192,6 +192,12 @@ data "ct_config" "ign" {
 #   }
 # }
 
+resource "local_file" "ignition" {
+  count    = data.coder_workspace.me.start_count
+  content  = data.ct_config.ign[count.index].rendered
+  filename = "${path.module}/.ignition-${count.index}.ign"
+}
+
 # ----------------------------
 # System Disk Trigger (Fedora CoreOS is immutable, only trigger on base image change)
 # ----------------------------
@@ -241,8 +247,6 @@ resource "libvirt_domain" "main" {
   name    = local.resource_name
   running = true
   
-  # Injecting the coder_agent ID directly here forces the Coder UI 
-  # to correctly assign and display the agent against this Libvirt VM resource.
   description = "Workspace VM for ${local.username}."
 
   memory      = data.coder_parameter.vm_memory.value
@@ -257,25 +261,9 @@ resource "libvirt_domain" "main" {
   lifecycle {
     replace_triggered_by = [
       terraform_data.os_disk_trigger.id,
-      # libvirt_combustion.main[count.index].id
+      local_file.ignition[count.index].id # Trigger rebuild if the file changes
     ]
   }
-
-  # ----------------------------
-  # Mount Ignition via fw_cfg
-  # ----------------------------
-  sys_info = [
-    {
-      fw_cfg = {
-        entry = [
-          {
-            name  = "opt/com.coreos/config"
-            value = data.ct_config.ign[count.index].rendered
-          }
-        ]
-      }
-    }
-  ]
 
   destroy = {
     graceful = true
@@ -288,6 +276,23 @@ resource "libvirt_domain" "main" {
     machine      = "q35"
     boot_devices = [{dev = "hd"}]
   }
+
+  # ----------------------------
+  # Mount Ignition via fw_cfg file
+  # ----------------------------
+  sys_info = [
+    {
+      fw_cfg = {
+        entry = [
+          {
+            name  = "opt/com.coreos/config"
+            file  = local_file.ignition[count.index].filename
+            value = "" # Required by Terraform provider schema, ignored by QEMU
+          }
+        ]
+      }
+    }
+  ]
 
   devices = {
     disks = [
