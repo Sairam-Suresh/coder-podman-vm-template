@@ -269,6 +269,14 @@ resource "libvirt_domain" "main" {
     arch         = "x86_64"
     machine      = "q35"
     boot_devices = [{dev = "hd"}]
+
+    sm_bios = {
+      mode = "sysinfo"
+    }
+  }
+
+  features = {
+    acpi = true
   }
 
   # ----------------------------
