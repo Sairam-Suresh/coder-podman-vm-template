@@ -215,7 +215,7 @@ resource "libvirt_volume" "os_disk" {
   name     = "${local.resource_name}-os"
   pool     = "default"
   count = data.coder_workspace.me.start_count
-  capacity = 5 * 1024 * 1024 * 1024 # 5 GB purely for the OS/system
+  capacity = 10 * 1024 * 1024 * 1024 # 10 GB purely for updates
   target   = { format = { type = "qcow2" } }
 
   backing_store = {
