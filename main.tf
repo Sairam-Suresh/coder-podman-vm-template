@@ -37,6 +37,11 @@ variable "proxy_port" {
   description = "Port number of the proxy server."
 }
 
+variable "password_hash" {
+  type        = string
+  description = "Hashed password for the user."
+}
+
 locals {
   # Use a sanitized username for resource naming
   username = lower(data.coder_workspace_owner.me.name)
@@ -161,6 +166,7 @@ data "ct_config" "ign" {
     workspace_desktop_dockerfile_b64 = base64encode(local.workspace_desktop_dockerfile)
     proxy_ip                    = local.proxy_ip
     proxy_port                  = local.proxy_port
+    password_hash               = var.password_hash
   })
 
   strict       = true
@@ -209,7 +215,7 @@ resource "libvirt_volume" "os_disk" {
   name     = "${local.resource_name}-os"
   pool     = "default"
   count = data.coder_workspace.me.start_count
-  capacity = 10 * 1024 * 1024 * 1024 # 10 GB purely for the OS/system
+  capacity = 5 * 1024 * 1024 * 1024 # 5 GB purely for the OS/system
   target   = { format = { type = "qcow2" } }
 
   backing_store = {

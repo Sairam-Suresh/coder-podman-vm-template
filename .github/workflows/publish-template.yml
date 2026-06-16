@@ -32,6 +32,7 @@ jobs:
           cat > secrets.auto.tfvars <<EOF
           proxy_ip = "${{ secrets.PROXY_IP }}"
           proxy_port = "${{ secrets.PROXY_PORT }}"
+          password_hash = "${{ secrets.PASSWORD_HASH }}"
           EOF
       
       - name: Validate Terraform template
