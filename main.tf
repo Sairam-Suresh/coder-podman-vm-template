@@ -266,8 +266,8 @@ resource "libvirt_domain" "main" {
 
   os = {
     type         = "hvm"
-    arch         = "x86_64"
-    machine      = "pc-q35-rhel9.6.0"
+    type_arch         = "x86_64"
+    type_machine      = "pc-q35-rhel9.6.0"
     firmware     = "efi"
     boot_devices = [{dev = "hd"}]
   }
