@@ -18,7 +18,7 @@ storage:
           number: 1
   
   filesystems:
-    - path: /home/coder
+    - path: /var/home/coder
       device: /dev/disk/by-partlabel/coder-home
       format: xfs
       with_mount_unit: true
@@ -116,7 +116,7 @@ storage:
           source /opt/coder/agent.env
           
           # Initialize variables for Certificate and Podman configuration
-          HOME_DIR="/home/coder"
+          HOME_DIR="/var/home/coder"
           CERT_DIR="$HOME_DIR/certs"
           mkdir -p "$HOME_DIR/.config/containers"
           mkdir -p "$CERT_DIR"
@@ -209,7 +209,7 @@ storage:
           exec podman run --rm --name coder-agent \
             --network host \
             -v /run/user/1000/podman/podman.sock:/var/run/docker.sock:Z \
-            -v /home/coder:/home/coder:Z \
+            -v /var/home/coder:/var/home/coder:Z \
             -v /opt/coder/agent.sh:/opt/coder/agent.sh:ro,z \
             -e CODER_AGENT_TOKEN="$${CODER_AGENT_TOKEN}" \
             -e CODER_AGENT_URL="$${CODER_AGENT_URL}" \
@@ -233,20 +233,20 @@ systemd:
       contents: |
         [Unit]
         Description=Initialize Core Home and Podman Linger
-        Requires=home-coder.mount
-        After=home-coder.mount
+        Requires=var-home-coder.mount
+        After=var-home-coder.mount
         Before=coder-agent.service systemd-user-sessions.service
         ConditionFirstBoot=yes
 
         [Service]
         Type=oneshot
         ExecStart=-/usr/bin/systemctl stop user@1000.service
-        ExecStart=/usr/bin/bash -c 'cp -a /home/core/. /home/coder/ || true'
+        ExecStart=/usr/bin/bash -c 'cp -a /var/home/core/. /var/home/coder/ || true'
         # Set core user's home to the new persistent mount
-        ExecStart=/usr/sbin/usermod -d /home/coder core
-        ExecStart=/usr/bin/chown -R core:core /home/coder
-        ExecStart=/usr/bin/chmod 750 /home/coder
-        ExecStart=/usr/bin/rm -rf /home/core
+        ExecStart=/usr/sbin/usermod -d /var/home/coder core
+        ExecStart=/usr/bin/chown -R core:core /var/home/coder
+        ExecStart=/usr/bin/chmod 750 /var/home/coder
+        ExecStart=/usr/bin/rm -rf /var/home/core
         ExecStart=/usr/bin/loginctl enable-linger core
         ExecStart=/usr/bin/su - core -c 'systemctl --user enable --now podman.socket'
 

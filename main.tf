@@ -208,7 +208,8 @@ resource "terraform_data" "os_disk_trigger" {
 resource "libvirt_volume" "os_disk" {
   name     = "${local.resource_name}-os"
   pool     = "default"
-  capacity = 10 * 1024 * 1024 * 1024 # 20 GB purely for the OS/system
+  count = data.coder_workspace.me.start_count
+  capacity = 10 * 1024 * 1024 * 1024 # 10 GB purely for the OS/system
   target   = { format = { type = "qcow2" } }
 
   backing_store = {
@@ -301,8 +302,8 @@ resource "libvirt_domain" "main" {
         driver = { type = "qcow2" }
         source = {
           volume = {
-            pool   = libvirt_volume.os_disk.pool
-            volume = libvirt_volume.os_disk.name
+            pool   = libvirt_volume.os_disk[count.index].pool
+            volume = libvirt_volume.os_disk[count.index].name
           }
         }
         target = { bus = "virtio", dev = "vda" }
