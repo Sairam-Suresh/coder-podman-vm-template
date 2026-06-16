@@ -13,13 +13,15 @@ passwd:
 storage:
   disks:
     - device: /dev/vdb
-      wipe_table: true
+      wipe_table: false
       partitions:
         - label: coder-home
           number: 1
   
   filesystems:
-    - path: /var/home/coder
+    # Mount the persistent disk to /var/home so BOTH the core user's home 
+    # and the /var/home/coder workspace folder are persisted.
+    - path: /var/home
       device: /dev/disk/by-partlabel/coder-home
       format: xfs
       with_mount_unit: true
@@ -118,9 +120,12 @@ storage:
           source /opt/coder/agent.env
           
           # Initialize variables for Certificate and Podman configuration
-          HOME_DIR="/var/home/coder"
-          CERT_DIR="$HOME_DIR/certs"
-          mkdir -p "$HOME_DIR/.config/containers"
+          CORE_HOME="/var/home/core"
+          WORKSPACE_DIR="/var/home/coder"
+          CERT_DIR="$WORKSPACE_DIR/certs"
+          
+          # Write Podman configurations to the core user's actual home
+          mkdir -p "$CORE_HOME/.config/containers"
           mkdir -p "$CERT_DIR"
           
           PODMAN_HTTP_PROXY="$${HTTP_PROXY}"
@@ -153,8 +158,8 @@ storage:
             cat "$CERT_DIR/root.crt" "$CERT_DIR/intermed.crt" > "$CERT_DIR/ca-bundle.crt" 2>/dev/null || true
           fi
 
-          # Write containers.conf in the user's config dir (use CERT_DIR variable)
-          cat > "$HOME_DIR/.config/containers/containers.conf" <<CONF
+          # Write containers.conf in the core user's config dir
+          cat > "$CORE_HOME/.config/containers/containers.conf" <<CONF
           [engine]
           compose_warning_logs = false
 
@@ -200,7 +205,7 @@ storage:
           CONF
 
           # Write mounts.conf to instruct podman about host mount (used by some runtimes)
-          echo "$${CERT_DIR}:$${CERT_DIR}" > "$HOME_DIR/.config/containers/mounts.conf"
+          echo "$${CERT_DIR}:$${CERT_DIR}" > "$CORE_HOME/.config/containers/mounts.conf"
           
           # Refresh the Podman API daemon so the socket picks up the new configurations
           systemctl --user restart podman.socket podman.service
@@ -211,7 +216,7 @@ storage:
           exec podman run --rm --name coder-agent \
             --network host \
             -v /run/user/1000/podman/podman.sock:/var/run/docker.sock:Z \
-            -v /var/home/coder:/var/home/coder:Z \
+            -v /var/home/coder:/home/coder:z \
             -v /opt/coder/agent.sh:/opt/coder/agent.sh:ro,z \
             -e CODER_AGENT_TOKEN="$${CODER_AGENT_TOKEN}" \
             -e CODER_AGENT_URL="$${CODER_AGENT_URL}" \
@@ -234,23 +239,26 @@ systemd:
       enabled: true
       contents: |
         [Unit]
-        Description=Initialize Core Home and Podman Linger
-        Requires=var-home-coder.mount
-        After=var-home-coder.mount
+        Description=Initialize Workspace and Persistent Home
+        Requires=var-home.mount
+        After=var-home.mount
         Before=coder-agent.service systemd-user-sessions.service
-        ConditionFirstBoot=yes
 
         [Service]
         Type=oneshot
-        ExecStart=-/usr/bin/systemctl stop user@1000.service
-        ExecStart=/usr/bin/bash -c 'cp -a /var/home/core/. /var/home/coder/ || true'
-        # Set core user's home to the new persistent mount
-        ExecStart=/usr/sbin/usermod -d /var/home/coder core
+        # Ensure the coder workspace directory exists inside the persistent mount
+        ExecStart=/usr/bin/mkdir -p /var/home/coder
         ExecStart=/usr/bin/chown -R core:core /var/home/coder
         ExecStart=/usr/bin/chmod 750 /var/home/coder
-        ExecStart=/usr/bin/rm -rf /var/home/core
+        
+        # Setup podman socket for the core user (UID 1000)
+        ExecStart=/usr/bin/mkdir -p /var/home/core/.config/systemd/user/sockets.target.wants
+        ExecStart=/usr/bin/ln -sf /usr/lib/systemd/user/podman.socket /var/home/core/.config/systemd/user/sockets.target.wants/podman.socket
+        ExecStart=/usr/bin/chown -R core:core /var/home/core/.config
+        
+        # Enable linger and kickstart the core user's systemd daemon
         ExecStart=/usr/bin/loginctl enable-linger core
-        ExecStart=/usr/bin/su - core -c 'systemctl --user enable --now podman.socket'
+        ExecStart=/usr/bin/bash -c "systemctl start user@1000.service"
 
         [Install]
         WantedBy=multi-user.target
