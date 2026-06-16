@@ -51,6 +51,7 @@ locals {
   # Calculate the working directory to avoid circular dependencies with the git-clone module
   folder_name = data.coder_parameter.enable_git_clone.value == "true" ? replace(basename(try(data.coder_parameter.repo_url[0].value, "")), "/\\.git$/", "") : try(data.coder_parameter.manual_folder_name[0].value, "")
   
+  # Set workdir to the 'coder' user inside the container
   workdir     = "/home/coder/${local.folder_name}"
 
   workspace_dockerfile         = file("${path.module}/images/workspace.Dockerfile")
@@ -348,7 +349,6 @@ resource "libvirt_domain" "main" {
           heads   = 1
           accel = {
             accel3d     = "yes"
-            render_node = "/dev/dri/renderD128"
           }
         }
       }
@@ -396,6 +396,14 @@ resource "coder_agent" "main" {
   }
 
   metadata {
+    display_name = "Home Disk"
+    key          = "4_home_disk"
+    script       = "coder stat disk --path $${HOME}"
+    interval     = 60
+    timeout      = 1
+  }
+
+  metadata {
     display_name = "CPU Usage (Host)"
     key          = "2_cpu_usage_host"
     script       = "coder stat cpu --host"
@@ -408,14 +416,6 @@ resource "coder_agent" "main" {
     key          = "3_mem_usage_host"
     script       = "coder stat mem --host"
     interval     = 10
-    timeout      = 1
-  }
-
-  metadata {
-    display_name = "Home Disk (Host)"
-    key          = "4_home_disk"
-    script       = "coder stat disk --path $${HOME}"
-    interval     = 60
     timeout      = 1
   }
 
