@@ -253,7 +253,7 @@ storage:
           systemctl --user restart podman.socket podman.service
           
           # Build the workspace image from the active Dockerfile
-          podman build -t localhost/custom-workspace:latest \
+          podman build -t custom-workspace:latest \
             --build-arg HTTP_PROXY="$${PODMAN_HTTP_PROXY}" \
             --build-arg HTTPS_PROXY="$${PODMAN_HTTPS_PROXY}" \
             --build-arg NO_PROXY="$${PODMAN_NO_PROXY}" \
@@ -272,7 +272,7 @@ storage:
             -e HTTP_PROXY="$${HTTP_PROXY}" \
             -e HTTPS_PROXY="$${HTTPS_PROXY}" \
             -e NO_PROXY="$${NO_PROXY}" \
-            localhost/custom-workspace:latest \
+            custom-workspace:latest \
             /opt/coder/agent.sh
 
 systemd:
