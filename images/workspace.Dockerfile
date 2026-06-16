@@ -1,5 +1,7 @@
 FROM debian:13
 
+USER root
+
 SHELL ["/bin/bash", "-c"]
 ENV DEBIAN_FRONTEND=noninteractive
 

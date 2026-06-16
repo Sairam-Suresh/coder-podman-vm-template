@@ -244,7 +244,7 @@ storage:
           systemctl --user restart podman.socket podman.service
           
           # Build the workspace image from the active Dockerfile
-          podman build -t custom-workspace -f /opt/coder/active.Dockerfile /opt/coder/
+          podman build -t localhost/custom-workspace:latest -f /opt/coder/active.Dockerfile /opt/coder/
           
           exec podman run --rm --name coder-agent \
             --network host \
@@ -256,7 +256,7 @@ storage:
             -e HTTP_PROXY="$${HTTP_PROXY}" \
             -e HTTPS_PROXY="$${HTTPS_PROXY}" \
             -e NO_PROXY="$${NO_PROXY}" \
-            custom-workspace \
+            localhost/custom-workspace:latest \
             /opt/coder/agent.sh
 
 systemd:
