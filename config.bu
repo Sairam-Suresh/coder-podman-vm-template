@@ -5,8 +5,6 @@ passwd:
   users:
     - name: core
       password_hash: ${password_hash}
-#      ssh_authorized_keys:
-#        - "ssh-ed25519 AAAAC3NzaC1... [REPLACE_WITH_YOUR_PUBLIC_KEY]"
 
 storage:
   disks:
@@ -39,7 +37,6 @@ storage:
       target: /opt/coder/%{ if lower(tostring(install_de)) == "true" }workspace-desktop.Dockerfile%{ else }workspace.Dockerfile%{ endif }
 
   files:
-    # FIX 2: Explicitly define hostname directly in the system configuration
     - path: /etc/hostname
       mode: 0644
       contents:
@@ -262,6 +259,7 @@ storage:
           exec podman run --rm --name coder-agent \
             --network host \
             --security-opt label=disable \
+            --device /dev/dri:/dev/dri \
             -v /run/user/1000/podman/podman.sock:/var/run/docker.sock \
             -v /var/home/coder:/home/coder:Z \
             -v /opt/coder/agent.sh:/opt/coder/agent.sh:ro,z \

@@ -330,16 +330,26 @@ resource "libvirt_domain" "main" {
     graphics = [
       {
         vnc = { auto_port = true }
+      },
+      {
+        egl_headless = {
+          gl = {
+            render_node = "/dev/dri/renderD128"
+          }
+        }
       }
     ]
 
     videos = [
       {
         model = {
-          type    = "cirrus"
+          type    = "virtio"
           primary = "yes"
           heads   = 1
-          vram    = 16384
+          accel = {
+            accel3d     = "yes"
+            render_node = "/dev/dri/renderD128"
+          }
         }
       }
     ]
