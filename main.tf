@@ -385,7 +385,7 @@ resource "coder_agent" "main" {
     DOCKER_HOST         = "unix:///run/user/1001/podman/podman.sock"
   }
 
-  metadata {
+metadata {
     display_name = "CPU Usage"
     key          = "0_cpu_usage"
     script       = "coder stat cpu"
@@ -403,30 +403,45 @@ resource "coder_agent" "main" {
 
   metadata {
     display_name = "Home Disk"
-    key          = "3_home_disk"
+    key          = "4_home_disk"
     script       = "coder stat disk --path $${HOME}"
     interval     = 60
     timeout      = 1
   }
 
   metadata {
-    display_name = "Tailscale Ping to Homelab"
-    key          = "8_ts_ping"
-    script       = <<EOT
-    tailscale ping -c 1 homelab 2>/dev/null | grep "pong" | awk '{print $NF}'
-    EOT
-    interval     = 25
+    display_name = "CPU Usage (Host)"
+    key          = "2_cpu_usage_host"
+    script       = "coder stat cpu --host"
+    interval     = 10
     timeout      = 1
   }
 
   metadata {
-    display_name = "Connection to Homelab"
-    key          = "9_ts_conn_type"
-    script       = <<EOT
-    tailscale ping -c 1 homelab 2>/dev/null | grep "pong" | awk '{print $6}'
-    EOT
-    interval     = 25
+    display_name = "Memory Usage (Host)"
+    key          = "3_mem_usage_host"
+    script       = "coder stat mem --host"
+    interval     = 10
     timeout      = 1
+  }
+
+  metadata {
+    display_name = "Home Disk (Host)"
+    key          = "4_home_disk"
+    script       = "coder stat disk --path $${HOME}"
+    interval     = 60
+    timeout      = 1
+  }
+
+  metadata {
+    display_name = "Load Average (Host)"
+    key          = "5_load_host"
+    # get load avg scaled by number of cores
+    script   = <<EOT
+      echo "`cat /proc/loadavg | awk '{ print $1 }'` `nproc`" | awk '{ printf "%0.2f", $1/$2 }'
+    EOT
+    interval = 60
+    timeout  = 1
   }
 }
 
