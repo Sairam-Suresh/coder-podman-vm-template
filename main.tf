@@ -240,7 +240,7 @@ resource "libvirt_domain" "main" {
 
   memory      = data.coder_parameter.vm_memory.value
   memory_unit = "GiB"
-  current_memory = 1.5 # Minimum memory before ballooning happens
+  current_memory = 2 # Minimum memory before ballooning happens
   current_memory_unit = "GiB"
   vcpu        = data.coder_parameter.vm_vcpu.value
   type        = "kvm"
