@@ -39,7 +39,7 @@ variable "proxy_port" {
 
 locals {
   # Use a sanitized username for resource naming
-  username = "coder"
+  username = lower(data.coder_workspace_owner.me.name)
   # Unique name for the VM domain and its associated resources
   resource_name = "coder-${local.username}-${lower(data.coder_workspace.me.name)}"
   
@@ -168,29 +168,29 @@ data "ct_config" "ign" {
 }
 
 # Libvirt Combustion resource to handle the Ignition configuration
-resource "libvirt_combustion" "main" {
-  name  = "${local.resource_name}-ign-intermediate"
-  count = data.coder_workspace.me.start_count
+# resource "libvirt_combustion" "main" {
+#   name  = "${local.resource_name}-ign-intermediate"
+#   count = data.coder_workspace.me.start_count
 
-  content = data.ct_config.ign[count.index].rendered
+#   content = data.ct_config.ign[count.index].rendered
 
-  lifecycle {
-    replace_triggered_by = [data.ct_config.ign[count.index].rendered]
-  }
-}
+#   lifecycle {
+#     replace_triggered_by = [data.ct_config.ign[count.index].rendered]
+#   }
+# }
 
-resource "libvirt_volume" "ignition" {
-  name   = "${local.resource_name}-ign-intermediate"
-  count = data.coder_workspace.me.start_count
-  pool   = "default"
-  target = { format = {type = "raw"} }
+# resource "libvirt_volume" "ignition" {
+#   name   = "${local.resource_name}-ign-intermediate"
+#   count = data.coder_workspace.me.start_count
+#   pool   = "default"
+#   target = { format = {type = "raw"} }
 
-  create = {
-    content = {
-      url = libvirt_combustion.main[count.index].path
-    }
-  }
-}
+#   create = {
+#     content = {
+#       url = libvirt_combustion.main[count.index].path
+#     }
+#   }
+# }
 
 # ----------------------------
 # System Disk Trigger (Fedora CoreOS is immutable, only trigger on base image change)
@@ -261,6 +261,22 @@ resource "libvirt_domain" "main" {
     ]
   }
 
+  # ----------------------------
+  # Mount Ignition via fw_cfg
+  # ----------------------------
+  sys_info = [
+    {
+      fw_cfg = {
+        entry = [
+          {
+            name  = "opt/com.coreos/config"
+            value = data.ct_config.ign[count.index].rendered
+          }
+        ]
+      }
+    }
+  ]
+
   destroy = {
     graceful = true
     timeout  = 120
@@ -275,21 +291,6 @@ resource "libvirt_domain" "main" {
 
   devices = {
     disks = [
-      {
-        # The ignition for CoreOS
-        device = "cdrom"
-        driver = { type = "raw" },
-        source = {
-          volume = {
-            pool   = libvirt_volume.ignition[count.index].pool
-            volume = libvirt_volume.ignition[count.index].name
-          }
-        },
-        target = {
-          dev = "sda"
-          bus = "sata"
-        }
-      },
       {
         # vda: The OS disk (Fedora CoreOS)
         driver = { type = "qcow2" }
