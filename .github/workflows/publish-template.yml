@@ -29,10 +29,12 @@ jobs:
       
       - name: Create Terraform secrets file
         run: |
-          cat > secrets.auto.tfvars <<EOF
-          proxy_ip = "${{ secrets.PROXY_IP }}"
-          proxy_port = "${{ secrets.PROXY_PORT }}"
-          password_hash = "${{ secrets.PASSWORD_HASH }}"
+          cat > secrets.auto.tfvars.json <<EOF
+          {
+            "proxy_ip": "${{ secrets.PROXY_IP }}",
+            "proxy_port": "${{ secrets.PROXY_PORT }}",
+            "password_hash": "${{ secrets.PASSWORD_HASH }}"
+          }
           EOF
       
       - name: Validate Terraform template
@@ -84,7 +86,7 @@ jobs:
           cp "$GITHUB_WORKSPACE/main.tf" "$TEMPLATE_SRC_DIR/"
           cp "$GITHUB_WORKSPACE/README.md" "$TEMPLATE_SRC_DIR/"
           cp "$GITHUB_WORKSPACE/config.bu" "$TEMPLATE_SRC_DIR/"
-          cp "$GITHUB_WORKSPACE/secrets.auto.tfvars" "$TEMPLATE_SRC_DIR/"
+          cp "$GITHUB_WORKSPACE/secrets.auto.tfvars.json" "$TEMPLATE_SRC_DIR/secrets.auto.tfvars.json"
           cp -r "$GITHUB_WORKSPACE/images" "$TEMPLATE_SRC_DIR/images"
           
           ls -la "$TEMPLATE_SRC_DIR"
