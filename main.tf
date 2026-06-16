@@ -170,13 +170,26 @@ data "ct_config" "ign" {
 
 # Libvirt Combustion resource to handle the Ignition configuration
 resource "libvirt_combustion" "main" {
-  name  = "${local.resource_name}-ign"
+  name  = "${local.resource_name}-ign-intermediate"
   count = data.coder_workspace.me.start_count
 
-  content = data.ct_config.ign.rendered
+  content = data.ct_config.ign[count.index].rendered
 
   lifecycle {
     replace_triggered_by = [local_file.ignition_config[count.index].id]
+  }
+}
+
+resource "libvirt_volume" "ignition" {
+  name   = "${local.resource_name}-ign-intermediate"
+  count = data.coder_workspace.me.start_count
+  pool   = "default"
+  target = { format = {type = "raw"} }
+
+  create = {
+    content = {
+      url = libvirt_combustion.main[count.index].path
+    }
   }
 }
 
@@ -261,11 +274,23 @@ resource "libvirt_domain" "main" {
     boot_devices = [{dev = "hd"}]
   }
 
-  # Reference the combustion/ignition configuration
-  combustion_content = libvirt_combustion.main[count.index].content
-
   devices = {
     disks = [
+      {
+        # The ignition for CoreOS
+        # device = "cdrom"
+        driver = { type = "raw" },
+        source = {
+          volume = {
+            pool   = libvirt_volume.ignition[count.index].pool
+            volume = libvirt_volume.ignition[count.index].name
+          }
+        },
+        # target = {
+        #   dev = "sda"
+        #   bus = "sata"
+        # }
+      },
       {
         # vda: The OS disk (Fedora CoreOS)
         driver = { type = "qcow2" }
