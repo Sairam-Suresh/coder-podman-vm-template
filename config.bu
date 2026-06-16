@@ -66,6 +66,7 @@ storage:
     # 🌐 Networking & Security: Firewall
     - path: /etc/sysconfig/nftables.conf
       mode: 0644
+      overwrite: true
       contents:
         inline: |
           include "/etc/nftables/coder-firewall.nft"
