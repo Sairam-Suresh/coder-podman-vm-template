@@ -257,7 +257,7 @@ resource "libvirt_domain" "main" {
   lifecycle {
     replace_triggered_by = [
       terraform_data.os_disk_trigger.id,
-      libvirt_combustion.main[count.index].id
+      # libvirt_combustion.main[count.index].id
     ]
   }
 
