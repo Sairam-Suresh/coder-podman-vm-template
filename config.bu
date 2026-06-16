@@ -7,7 +7,7 @@ passwd:
     - name: core
       # Replace this with the ENTIRE output of your generator command.
       # (The output will naturally contain the $6$, the salt, and the hash).
-      password_hash: "PASTE_ENTIRE_OUTPUT_STARTING_WITH_$6$_HERE"
+      password_hash: ${password_hash}
       ssh_authorized_keys:
         - "ssh-ed25519 AAAAC3NzaC1... [REPLACE_WITH_YOUR_PUBLIC_KEY]"
 
