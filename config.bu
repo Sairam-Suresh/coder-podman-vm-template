@@ -1,7 +1,6 @@
 variant: fcos
 version: 1.5.0
 
-# 👤 User & Authentication
 passwd:
   users:
     - name: core
@@ -11,7 +10,6 @@ passwd:
 #      ssh_authorized_keys:
 #        - "ssh-ed25519 AAAAC3NzaC1... [REPLACE_WITH_YOUR_PUBLIC_KEY]"
 
-# 💾 Storage & Data Persistence
 storage:
   disks:
     - device: /dev/vdb
@@ -30,24 +28,43 @@ storage:
       format: xfs
       with_mount_unit: true
 
+  # Explicitly declare the directory to ensure it is owned by the core user
+  directories:
+    - path: /opt/coder
+      mode: 0755
+      user:
+        name: core
+      group:
+        name: core
+
   # Conditionally point to the correct Dockerfile using Terraform template logic
   links:
     - path: /opt/coder/active.Dockerfile
+      user:
+        name: core
+      group:
+        name: core
       target: /opt/coder/%{ if lower(tostring(install_de)) == "true" }workspace-desktop.Dockerfile%{ else }workspace.Dockerfile%{ endif }
 
   files:
-    # 🐳 Containerization: Store Dockerfiles for reference via Base64 to avoid YAML breaks
     - path: /opt/coder/workspace.Dockerfile
       mode: 0644
+      user:
+        name: core
+      group:
+        name: core
       contents:
         source: data:text/plain;charset=utf-8;base64,${workspace_dockerfile_b64}
 
     - path: /opt/coder/workspace-desktop.Dockerfile
       mode: 0644
+      user:
+        name: core
+      group:
+        name: core
       contents:
         source: data:text/plain;charset=utf-8;base64,${workspace_desktop_dockerfile_b64}
 
-    # 🌐 Networking & Security: Global Proxy
     - path: /etc/systemd/system.conf.d/10-proxy.conf
       mode: 0644
       contents:
@@ -63,14 +80,12 @@ storage:
           export HTTPS_PROXY="http://${proxy_ip}:${proxy_port}"
           export NO_PROXY="localhost,127.0.0.1"
 
-    # 🐳 Containerization: Unprivileged Ports Mapping
     - path: /etc/sysctl.d/99-unprivileged-ports.conf
       mode: 0644
       contents:
         inline: |
           net.ipv4.ip_unprivileged_port_start=80
 
-    # 🌐 Networking & Security: Firewall
     - path: /etc/sysconfig/nftables.conf
       mode: 0644
       overwrite: true
@@ -100,23 +115,32 @@ storage:
               ct state established,related accept
             }
           }
-
-    # 🐳 Containerization: Coder Initialization Scripts
     - path: /opt/coder/agent.env
       mode: 0600
+      user:
+        name: core
+      group:
+        name: core
       contents:
         inline: |
           CODER_AGENT_TOKEN="${coder_agent_token}"
           CODER_AGENT_URL="${coder_agent_url}"
     
-    # ⚠️ Use Base64 here as well since this script is likely multiline
     - path: /opt/coder/agent.sh
       mode: 0755
+      user:
+        name: core
+      group:
+        name: core
       contents:
         source: data:text/plain;charset=utf-8;base64,${coder_agent_init_script_b64}
 
     - path: /opt/coder/script.sh
       mode: 0755
+      user:
+        name: core
+      group:
+        name: core
       contents:
         inline: |
           #!/bin/bash
@@ -207,6 +231,11 @@ storage:
             "no_proxy=$${PODMAN_NO_PROXY}"
           ]
           CONF
+
+          # Write registries.conf to allow unqualified docker.io pulls
+          cat > "$CORE_HOME/.config/containers/registries.conf" <<REG
+          unqualified-search-registries = ["docker.io"]
+          REG
 
           # Write mounts.conf to instruct podman about host mount (used by some runtimes)
           echo "$${CERT_DIR}:$${CERT_DIR}" > "$CORE_HOME/.config/containers/mounts.conf"
