@@ -29,18 +29,16 @@ storage:
       target: /opt/coder/%{ if lower(tostring(install_de)) == "true" }workspace-desktop.Dockerfile%{ else }workspace.Dockerfile%{ endif }
 
   files:
-    # 🐳 Containerization: Store Dockerfiles for reference
+    # 🐳 Containerization: Store Dockerfiles for reference via Base64 to avoid YAML breaks
     - path: /opt/coder/workspace.Dockerfile
       mode: 0644
       contents:
-        inline: |
-          ${workspace_dockerfile}
+        source: data:text/plain;charset=utf-8;base64,${workspace_dockerfile_b64}
 
     - path: /opt/coder/workspace-desktop.Dockerfile
       mode: 0644
       contents:
-        inline: |
-          ${workspace_desktop_dockerfile}
+        source: data:text/plain;charset=utf-8;base64,${workspace_desktop_dockerfile_b64}
 
     # 🌐 Networking & Security: Global Proxy
     - path: /etc/systemd/system.conf.d/10-proxy.conf
@@ -103,11 +101,11 @@ storage:
           CODER_AGENT_TOKEN="${coder_agent_token}"
           CODER_AGENT_URL="${coder_agent_url}"
     
+    # ⚠️ Use Base64 here as well since this script is likely multiline
     - path: /opt/coder/agent.sh
-      mode: 755
+      mode: 0755
       contents:
-        inline: |
-        ${coder_agent_init_script}
+        source: data:text/plain;charset=utf-8;base64,${coder_agent_init_script_b64}
 
     - path: /opt/coder/script.sh
       mode: 0755
