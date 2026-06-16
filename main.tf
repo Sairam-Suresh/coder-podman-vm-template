@@ -168,34 +168,28 @@ data "ct_config" "ign" {
 }
 
 # Libvirt Combustion resource to handle the Ignition configuration
-# resource "libvirt_combustion" "main" {
-#   name  = "${local.resource_name}-ign-intermediate"
-#   count = data.coder_workspace.me.start_count
+resource "libvirt_ignition" "main" {
+  name  = "${local.resource_name}-ign-intermediate"
+  count = data.coder_workspace.me.start_count
 
-#   content = data.ct_config.ign[count.index].rendered
+  content = data.ct_config.ign[count.index].rendered
 
-#   lifecycle {
-#     replace_triggered_by = [data.ct_config.ign[count.index].rendered]
-#   }
-# }
+  lifecycle {
+    replace_triggered_by = [data.ct_config.ign[count.index].rendered]
+  }
+}
 
-# resource "libvirt_volume" "ignition" {
-#   name   = "${local.resource_name}-ign-intermediate"
-#   count = data.coder_workspace.me.start_count
-#   pool   = "default"
-#   target = { format = {type = "raw"} }
+resource "libvirt_volume" "ignition" {
+  name   = "${local.resource_name}-ign.ign"
+  count = data.coder_workspace.me.start_count
+  pool   = "default"
+  target = { format = {type = "raw"} }
 
-#   create = {
-#     content = {
-#       url = libvirt_combustion.main[count.index].path
-#     }
-#   }
-# }
-
-resource "local_file" "ignition" {
-  count    = data.coder_workspace.me.start_count
-  content  = data.ct_config.ign[count.index].rendered
-  filename = "${path.module}/.ignition-${count.index}.ign"
+  create = {
+    content = {
+      url = libvirt_ignition.main[count.index].path
+    }
+  }
 }
 
 # ----------------------------
@@ -287,7 +281,8 @@ resource "libvirt_domain" "main" {
           {
             name  = "opt/com.coreos/config"
             # Double-escape commas to prevent QEMU from splitting the JSON as CLI arguments
-            value = replace(data.ct_config.ign[count.index].rendered, ",", ",,")
+            file  = libvirt_volume.ignition[count.index].path
+            value = ""
           }
         ]
       }
