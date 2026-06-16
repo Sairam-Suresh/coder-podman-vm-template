@@ -238,6 +238,15 @@ systemd:
 
     - name: nftables.service
       enabled: true
+    
+    - name: getty@tty1.service
+      dropins:
+        - name: autologin.conf
+          contents: |
+            [Service]
+            TTYArgs=
+            ExecStart=
+            ExecStart=-/sbin/agetty --autologin core --noclear %I $TERM
 
     - name: coder-init.service
       enabled: true
