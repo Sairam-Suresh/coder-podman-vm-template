@@ -239,9 +239,11 @@ resource "libvirt_domain" "main" {
   description = "Workspace VM for ${local.username}."
 
   memory      = data.coder_parameter.vm_memory.value
+  current_memory = 2 # Minimum memory before ballooning happens
   memory_unit = "GiB"
   vcpu        = data.coder_parameter.vm_vcpu.value
   type        = "kvm"
+
 
   cpu = {
     mode = "host-passthrough"
@@ -285,6 +287,12 @@ resource "libvirt_domain" "main" {
   ]
 
   devices = {
+    mem_balloon = {
+      model               = "virtio"
+      free_page_reporting = "on"
+      auto_deflate        = "on"
+    }
+
     disks = [
       {
         driver = { type = "qcow2" }
