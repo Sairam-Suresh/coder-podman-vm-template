@@ -102,6 +102,12 @@ storage:
         inline: |
           CODER_AGENT_TOKEN="${coder_agent_token}"
           CODER_AGENT_URL="${coder_agent_url}"
+    
+    - path: /opt/coder/agent.sh
+      mode: 755
+      contents:
+        inline: |
+        ${coder_agent_init_script}
 
     - path: /opt/coder/script.sh
       mode: 0755
@@ -206,12 +212,14 @@ storage:
             --network host \
             -v /run/user/1000/podman/podman.sock:/var/run/docker.sock:Z \
             -v /home/coder:/home/coder:Z \
+            -v /opt/coder/agent.sh:/opt/coder/agent.sh:ro,z \
             -e CODER_AGENT_TOKEN="${CODER_AGENT_TOKEN}" \
             -e CODER_AGENT_URL="${CODER_AGENT_URL}" \
             -e HTTP_PROXY="${HTTP_PROXY}" \
             -e HTTPS_PROXY="${HTTPS_PROXY}" \
             -e NO_PROXY="${NO_PROXY}" \
-            custom-workspace
+            custom-workspace \
+            /opt/coder/agent.sh
 
 systemd:
   units:

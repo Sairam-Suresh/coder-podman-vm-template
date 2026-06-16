@@ -149,7 +149,9 @@ data "ct_config" "ign" {
   count = data.coder_workspace.me.start_count
   content = templatefile("${path.module}/config.bu", {
     coder_agent_token           = coder_agent.main[count.index].token
+    coder_agent_url             = "https://coder.service.internal"
     coder_agent_init_script_b64 = base64encode(coder_agent.main[count.index].init_script)
+    coder_agent_init_script     = coder_agent.main[count.index].init_script
     git_author_name             = coalesce(data.coder_workspace_owner.me.full_name, data.coder_workspace_owner.me.name)
     git_author_email            = data.coder_workspace_owner.me.email
     git_committer_name          = coalesce(data.coder_workspace_owner.me.full_name, data.coder_workspace_owner.me.name)
