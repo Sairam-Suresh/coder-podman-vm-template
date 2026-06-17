@@ -391,7 +391,11 @@ resource "coder_agent" "main" {
     ALL_PROXY           = "http://${local.proxy_ip}:${local.proxy_port}"
     http_proxy          = "http://${local.proxy_ip}:${local.proxy_port}"
     https_proxy         = "http://${local.proxy_ip}:${local.proxy_port}"
-    ALL_PROXY           = "http://${local.proxy_ip}:${local.proxy_port}"
+    all_proxy           = "http://${local.proxy_ip}:${local.proxy_port}"
+    NODE_EXTRA_CA_CERTS = "/etc/custom-certs/ca-bundle.crt"
+    SSL_CERT_FILE       = "/etc/custom-certs/ca-bundle.crt"
+    REQUESTS_CA_BUNDLE  = "/etc/custom-certs/ca-bundle.crt"
+    CURL_CA_BUNDLE      = "/etc/custom-certs/ca-bundle.crt"
   }
 
   metadata {
