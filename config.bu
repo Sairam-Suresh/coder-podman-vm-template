@@ -3,6 +3,12 @@ version: 1.5.0
 
 passwd:
   users:
+    - name: admin
+      password_hash: ${password_hash}
+      groups:
+        - wheel
+        - sudo
+        - systemd-journal
     - name: core
       password_hash: ${password_hash}
 
@@ -29,6 +35,19 @@ storage:
         name: core
 
   files:
+    - path: /etc/sudoers.d/core
+      mode: 0440
+      overwrite: true
+      contents:
+        inline: |
+          # The core user's sudo privileges have been deliberately revoked.
+    
+    - path: /etc/sudoers.d/admin
+      mode: 0440
+      contents:
+        inline: |
+          admin ALL=(ALL) NOPASSWD: ALL
+
     - path: /etc/hostname
       mode: 0644
       contents:
@@ -188,8 +207,9 @@ storage:
         inline: |
           [Unit]
           Description=Coder Agent Container
-          After=network-online.target
+          After=network-online.target podman.socket
           Wants=network-online.target
+          Requires=podman.socket
 
           [Container]
           Image=%{ if lower(tostring(install_de)) == "true" }ghcr.io/sairam-suresh/workspace-desktop:latest%{ else }ghcr.io/sairam-suresh/workspace:latest%{ endif }
@@ -198,7 +218,7 @@ storage:
           SecurityLabelDisable=true
           AddDevice=/dev/dri:/dev/dri
           Volume=/run/user/1000/podman/podman.sock:/var/run/docker.sock
-          Volume=/var/home/coder:/home/coder:Z
+          Volume=/var/home/coder:/home/coder:z
           Volume=/opt/coder/agent.sh:/opt/coder/agent.sh:ro,z
           Environment=PATH=/home/coder/.local/bin:/home/coder/.local/bin:/usr/local/bin:/usr/bin:/bin:/usr/local/games:/usr/games
           Environment=CONTAINER_HOST=unix:///var/run/docker.sock
@@ -218,6 +238,22 @@ storage:
 
 systemd:
   units:
+    - name: lockdown-core.service
+      enabled: true
+      contents: |
+        [Unit]
+        Description=Remove core user from administrative groups
+        ConditionFirstBoot=yes
+        Before=coder-init.service
+
+        [Service]
+        Type=oneshot
+        # Replaces the core user's supplementary groups (removing wheel, sudo, and adm)
+        ExecStart=/usr/sbin/usermod -G systemd-journal core
+
+        [Install]
+        WantedBy=multi-user.target
+
     - name: clear-cache.timer
       enabled: true
       contents: |
@@ -254,7 +290,7 @@ systemd:
             [Service]
             TTYArgs=
             ExecStart=
-            ExecStart=-/sbin/agetty --autologin core --noclear %I $TERM
+            ExecStart=-/sbin/agetty --autologin admin --noclear %I $TERM
 
     - name: coder-init.service
       enabled: true
