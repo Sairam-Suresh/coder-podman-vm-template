@@ -208,6 +208,7 @@ storage:
             -v /var/home/coder:/home/coder:Z \
             -v /opt/coder/agent.sh:/opt/coder/agent.sh:ro,z \
             -e PATH="/home/coder/.local/bin:/home/coder/.local/bin:/usr/local/bin:/usr/bin:/bin:/usr/local/games:/usr/games" \
+            -e CONTAINER_HOST="unix:///var/run/docker.sock"
             -e CODER_AGENT_TOKEN="$${CODER_AGENT_TOKEN}" \
             -e CODER_AGENT_URL="$${CODER_AGENT_URL}" \
             -e HTTP_PROXY="$${HTTP_PROXY}" \
