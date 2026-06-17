@@ -559,7 +559,7 @@ resource "coder_devcontainer" "devcontainer" {
   workspace_folder = local.workdir
 }
 
-module "code-server" {
+module "code-server-subagent" {
   count  = data.coder_workspace.me.start_count
   source = "registry.coder.com/coder/code-server/coder"
   version = "~> 1.0"
