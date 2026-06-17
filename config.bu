@@ -198,8 +198,8 @@ storage:
 
           touch "$CERT_DIR/root.crt" "$CERT_DIR/intermed.crt"
 
-          if [ -f /etc/pki/tls/certs/ca-bundle.crt ]; then
-            cp /etc/pki/tls/certs/ca-bundle.crt "$CERT_DIR/ca-bundle.crt"
+          if [ -f /etc/pki/ca-trust/extracted/pem/tls-ca-bundle.crt ]; then
+            cp /etc/pki/ca-trust/extracted/pem/tls-ca-bundle.crt "$CERT_DIR/ca-bundle.crt"
           else
             touch "$CERT_DIR/ca-bundle.crt"
           fi
