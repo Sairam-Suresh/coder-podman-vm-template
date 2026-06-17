@@ -567,7 +567,7 @@ module "code-server-subagent" {
   extensions = ["catppuccin.catppuccin-vsc-icons", "github.vscode-pull-request-github", "catppuccin.catppuccin-vsc"]
 
   open_in = "tab"
-  slug    = "Code Server (Devcontainer)"
+  slug    = "code-server-devcontainer"
 
   settings = {
     "git.autofetch": true,
