@@ -172,6 +172,13 @@ data "ct_config" "ign" {
   pretty_print = true
 }
 
+resource "terraform_data" "ignition_tracker" {
+  count = data.coder_workspace.me.start_count
+  
+  # Tracks the actual rendered text of the Butane config
+  input = data.ct_config.ign[count.index].rendered
+}
+
 resource "libvirt_ignition" "main" {
   name  = "${local.resource_name}-ign-intermediate"
   count = data.coder_workspace.me.start_count
@@ -179,7 +186,7 @@ resource "libvirt_ignition" "main" {
   content = data.ct_config.ign[count.index].rendered
 
   lifecycle {
-    replace_triggered_by = [data.ct_config.ign[count.index].rendered]
+    replace_triggered_by = [terraform_data.ignition_tracker[count.index].id]
   }
 }
 
