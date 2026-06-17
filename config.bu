@@ -118,7 +118,7 @@ storage:
           net = "host"
           userns = "keep-id"
           volumes = [
-            "/var/home/coder/certs/ca-bundle.crt:/etc/custom-certs/ca-bundle.crt:ro,z"
+            "/var/home/core/certs/ca-bundle.crt:/etc/custom-certs/ca-bundle.crt:ro,z"
           ]
           env = [
             "NODE_EXTRA_CA_CERTS=/etc/custom-certs/ca-bundle.crt",
@@ -145,7 +145,7 @@ storage:
       mode: 0644
       contents:
         inline: |
-          /var/home/coder/certs:/var/home/coder/certs
+          /var/home/core/certs:/var/home/core/certs
 
     # Fetch-certs is executed cleanly by the Quadlet service as an ExecStartPre directive.
     - path: /opt/coder/fetch-certs.sh
@@ -157,7 +157,7 @@ storage:
       contents:
         inline: |
           #!/bin/bash
-          CERT_DIR="/var/home/coder/certs"
+          CERT_DIR="/var/home/core/certs"
           mkdir -p "$CERT_DIR"
           HOMELAB_HOST="http://healthcheck.service.internal"
 
