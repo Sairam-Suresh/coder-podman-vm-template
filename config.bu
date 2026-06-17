@@ -105,7 +105,50 @@ storage:
       contents:
         source: data:text/plain;charset=utf-8;base64,${coder_agent_init_script_b64}
 
-    - path: /opt/coder/script.sh
+    # Configuration mapped using system-wide drop-ins to survive /var/home mount overlay
+    - path: /etc/containers/containers.conf.d/99-coder.conf
+      mode: 0644
+      contents:
+        inline: |
+          [engine]
+          compose_warning_logs = false
+
+          [containers]
+          netns = "host"
+          net = "host"
+          userns = "keep-id"
+          volumes = [
+            "/var/home/coder/certs/ca-bundle.crt:/etc/custom-certs/ca-bundle.crt:ro,z"
+          ]
+          env = [
+            "NODE_EXTRA_CA_CERTS=/etc/custom-certs/ca-bundle.crt",
+            "SSL_CERT_FILE=/etc/custom-certs/ca-bundle.crt",
+            "REQUESTS_CA_BUNDLE=/etc/custom-certs/ca-bundle.crt",
+            "CURL_CA_BUNDLE=/etc/custom-certs/ca-bundle.crt",
+            "HTTP_PROXY=http://${proxy_ip}:${proxy_port}",
+            "HTTPS_PROXY=http://${proxy_ip}:${proxy_port}",
+            "ALL_PROXY=socks5h://${proxy_ip}:${proxy_port}",
+            "NO_PROXY=localhost,127.0.0.1",
+            "http_proxy=http://${proxy_ip}:${proxy_port}",
+            "https_proxy=http://${proxy_ip}:${proxy_port}",
+            "all_proxy=socks5h://${proxy_ip}:${proxy_port}",
+            "no_proxy=localhost,127.0.0.1"
+          ]
+
+    - path: /etc/containers/registries.conf.d/99-coder.conf
+      mode: 0644
+      contents:
+        inline: |
+          unqualified-search-registries = ["docker.io", "ghcr.io"]
+
+    - path: /etc/containers/mounts.conf
+      mode: 0644
+      contents:
+        inline: |
+          /var/home/coder/certs:/var/home/coder/certs
+
+    # Fetch-certs is executed cleanly by the Quadlet service as an ExecStartPre directive.
+    - path: /opt/coder/fetch-certs.sh
       mode: 0755
       user:
         name: core
@@ -114,27 +157,10 @@ storage:
       contents:
         inline: |
           #!/bin/bash
-          source /etc/profile.d/proxy.sh
-          source /opt/coder/agent.env
-          
-          # Initialize variables for Certificate and Podman configuration
-          CORE_HOME="/var/home/core"
-          WORKSPACE_DIR="/var/home/coder"
-          CERT_DIR="$WORKSPACE_DIR/certs"
-          
-          # Target image from GHCR using Terraform templating
-          TARGET_IMAGE="%{ if lower(tostring(install_de)) == "true" }ghcr.io/sairam-suresh/workspace-desktop:latest%{ else }ghcr.io/sairam-suresh/workspace:latest%{ endif }"
-          
-          # Write Podman configurations to the core user's actual home
-          mkdir -p "$CORE_HOME/.config/containers"
+          CERT_DIR="/var/home/coder/certs"
           mkdir -p "$CERT_DIR"
-          
-          PODMAN_HTTP_PROXY="$${HTTP_PROXY}"
-          PODMAN_HTTPS_PROXY="$${HTTPS_PROXY}"
-          PODMAN_ALL_PROXY="socks5h://${proxy_ip}:${proxy_port}"
-          PODMAN_NO_PROXY="$${NO_PROXY}"
-
           HOMELAB_HOST="http://healthcheck.service.internal"
+
           echo "Waiting for $HOMELAB_HOST (healthcheck) to be reachable via SOCKS5..."
           until curl --socks5-hostname ${proxy_ip}:${proxy_port} -sS -I --max-time 5 -H 'Cache-Control: no-cache' -H 'Pragma: no-cache' "$HOMELAB_HOST/" 2>/dev/null | head -n1 | grep -qE 'HTTP/[^ ]+ 200'; do
             echo "Waiting for $HOMELAB_HOST (healthcheck) to be reachable via SOCKS5..."
@@ -145,77 +171,54 @@ storage:
           if curl --socks5-hostname ${proxy_ip}:${proxy_port} -fsSL -o "$CERT_DIR/root.crt" "http://stepca.service.internal/roots.pem"; then
             echo "Downloaded root certificate via SOCKS5"
           else
-            echo "Failed to download root certificate via SOCKS5; skipping (no direct fallback)"
+            echo "Failed to download root certificate via SOCKS5; skipping"
           fi
 
           if curl --socks5-hostname ${proxy_ip}:${proxy_port} -fsSL -o "$CERT_DIR/intermed.crt" "http://stepca.service.internal/intermediates.pem"; then
             echo "Downloaded intermediate certificate via SOCKS5"
           else
-            echo "Failed to download intermediate certificate via SOCKS5; skipping (no direct fallback)"
+            echo "Failed to download intermediate certificate via SOCKS5; skipping"
           fi
 
-          # Create combined bundle: Host's public CAs + Homelab CAs
           touch "$CERT_DIR/root.crt" "$CERT_DIR/intermed.crt"
           cat /etc/pki/tls/certs/ca-bundle.crt "$CERT_DIR/root.crt" "$CERT_DIR/intermed.crt" > "$CERT_DIR/ca-bundle.crt" 2>/dev/null || true
 
-          # Write containers.conf in the core user's config dir
-          cat > "$CORE_HOME/.config/containers/containers.conf" <<CONF
-          [engine]
-          compose_warning_logs = false
+    # Native Quadlet explicitly mapped to the core user's systemd generator directory (UID 1000)
+    - path: /etc/containers/systemd/users/1000/coder-agent.container
+      mode: 0644
+      contents:
+        inline: |
+          [Unit]
+          Description=Coder Agent Container
+          After=network-online.target
+          Wants=network-online.target
 
-          [containers]
-          netns = "host"
-          net = "host"
-          userns = "keep-id"
-          volumes = [
-            "$${CERT_DIR}/ca-bundle.crt:/etc/custom-certs/ca-bundle.crt:ro,z"
-          ]
-          env = [
-            "NODE_EXTRA_CA_CERTS=/etc/custom-certs/ca-bundle.crt",
-            "SSL_CERT_FILE=/etc/custom-certs/ca-bundle.crt",
-            "REQUESTS_CA_BUNDLE=/etc/custom-certs/ca-bundle.crt",
-            "CURL_CA_BUNDLE=/etc/custom-certs/ca-bundle.crt",
-            "HTTP_PROXY=$${PODMAN_HTTP_PROXY}",
-            "HTTPS_PROXY=$${PODMAN_HTTPS_PROXY}",
-            "ALL_PROXY=$${PODMAN_ALL_PROXY}",
-            "NO_PROXY=$${PODMAN_NO_PROXY}",
-            "http_proxy=$${PODMAN_HTTP_PROXY}",
-            "https_proxy=$${PODMAN_HTTPS_PROXY}",
-            "all_proxy=$${PODMAN_ALL_PROXY}",
-            "no_proxy=$${PODMAN_NO_PROXY}"
-          ]
-          CONF
+          [Container]
+          Image=%{ if lower(tostring(install_de)) == "true" }ghcr.io/sairam-suresh/workspace-desktop:latest%{ else }ghcr.io/sairam-suresh/workspace:latest%{ endif }
+          ContainerName=coder-agent
+          Network=host
+          SecurityLabelDisable=true
+          AddDevice=/dev/dri:/dev/dri
+          Volume=/run/user/1000/podman/podman.sock:/var/run/docker.sock
+          Volume=/var/home/coder:/home/coder:Z
+          Volume=/opt/coder/agent.sh:/opt/coder/agent.sh:ro,z
+          Environment=PATH=/home/coder/.local/bin:/home/coder/.local/bin:/usr/local/bin:/usr/bin:/bin:/usr/local/games:/usr/games
+          Environment=CONTAINER_HOST=unix:///var/run/docker.sock
+          Environment=HTTP_PROXY=http://${proxy_ip}:${proxy_port}
+          Environment=HTTPS_PROXY=http://${proxy_ip}:${proxy_port}
+          Environment=NO_PROXY=localhost,127.0.0.1
+          EnvironmentFile=/opt/coder/agent.env
+          Exec=/opt/coder/agent.sh
+          Pull=always
 
-          cat > "$CORE_HOME/.config/containers/registries.conf" <<REG
-          unqualified-search-registries = ["docker.io", "ghcr.io"]
-          REG
+          [Service]
+          Restart=always
+          RestartSec=10
+          # The certificate fetch hook runs securely right before the container starts
+          ExecStartPre=/opt/coder/fetch-certs.sh
 
-          # Write mounts.conf to instruct podman about host mount (used by some runtimes)
-          echo "$${CERT_DIR}:$${CERT_DIR}" > "$CORE_HOME/.config/containers/mounts.conf"
-          
-          # Refresh the Podman API daemon so the socket picks up the new configurations
-          systemctl --user restart podman.socket podman.service
-          
-          # Pull the target image to ensure it is up to date locally
-          podman pull --policy always "$TARGET_IMAGE"
-          
-          # Run the pre-built workspace image
-          exec podman run --rm --name coder-agent \
-            --network host \
-            --security-opt label=disable \
-            --device /dev/dri:/dev/dri \
-            -v /run/user/1000/podman/podman.sock:/var/run/docker.sock \
-            -v /var/home/coder:/home/coder:Z \
-            -v /opt/coder/agent.sh:/opt/coder/agent.sh:ro,z \
-            -e PATH="/home/coder/.local/bin:/home/coder/.local/bin:/usr/local/bin:/usr/bin:/bin:/usr/local/games:/usr/games" \
-            -e CONTAINER_HOST="unix:///var/run/docker.sock" \
-            -e CODER_AGENT_TOKEN="$${CODER_AGENT_TOKEN}" \
-            -e CODER_AGENT_URL="$${CODER_AGENT_URL}" \
-            -e HTTP_PROXY="$${HTTP_PROXY}" \
-            -e HTTPS_PROXY="$${HTTPS_PROXY}" \
-            -e NO_PROXY="$${NO_PROXY}" \
-            "$TARGET_IMAGE" \
-            /opt/coder/agent.sh
+          [Install]
+          WantedBy=default.target
 
 systemd:
   units:
@@ -242,7 +245,6 @@ systemd:
         Description=Initialize Workspace and Persistent Home
         Requires=var-home.mount
         After=var-home.mount
-        Before=coder-agent.service
         ConditionFirstBoot=yes
 
         [Service]
@@ -260,27 +262,6 @@ systemd:
         # Enable linger and kickstart the core user's systemd daemon asynchronously
         ExecStart=/usr/bin/loginctl enable-linger core
         ExecStart=/usr/bin/systemctl --no-block start user@1000.service
-
-        [Install]
-        WantedBy=multi-user.target
-
-    - name: coder-agent.service
-      enabled: true
-      contents: |
-        [Unit]
-        Description=Coder Agent Container
-        After=network-online.target coder-init.service
-        Wants=network-online.target
-        Requires=coder-init.service
-
-        [Service]
-        Type=simple
-        User=core
-        Group=core
-        Environment="XDG_RUNTIME_DIR=/run/user/1000"
-        ExecStart=/opt/coder/script.sh
-        Restart=always
-        RestartSec=10
 
         [Install]
         WantedBy=multi-user.target
