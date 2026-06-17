@@ -548,7 +548,7 @@ module "code-server-subagent" {
   count  = (data.coder_workspace.me.start_count > 0 && data.coder_parameter.enable_devcontainer.value == "true") ? 1 : 0
   source = "registry.coder.com/coder/code-server/coder"
   version = "~> 1.0"
-  folder = local.workdir
+  folder = "/workspaces/${local.folder_name}"
   extensions = ["catppuccin.catppuccin-vsc-icons", "github.vscode-pull-request-github", "catppuccin.catppuccin-vsc"]
 
   open_in = "tab"
