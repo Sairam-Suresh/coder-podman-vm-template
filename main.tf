@@ -386,6 +386,12 @@ resource "coder_agent" "main" {
     GIT_COMMITTER_NAME  = coalesce(data.coder_workspace_owner.me.full_name, data.coder_workspace_owner.me.name)
     GIT_COMMITTER_EMAIL = "${data.coder_workspace_owner.me.email}"
     DOCKER_HOST         = "unix:///var/run/docker.sock"
+    HTTP_PROXY          = "http://${local.proxy_ip}:${locals.proxy_port}"
+    HTTPS_PROXY         = "http://${local.proxy_ip}:${locals.proxy_port}"
+    ALL_PROXY           = "http://${local.proxy_ip}:${locals.proxy_port}"
+    http_proxy          = "http://${local.proxy_ip}:${locals.proxy_port}"
+    https_proxy         = "http://${local.proxy_ip}:${locals.proxy_port}"
+    ALL_PROXY           = "http://${local.proxy_ip}:${locals.proxy_port}"
   }
 
   metadata {
