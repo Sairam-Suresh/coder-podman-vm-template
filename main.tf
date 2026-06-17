@@ -553,6 +553,7 @@ module "code-server-subagent" {
 
   open_in = "tab"
   slug    = "code-server-devcontainer"
+  port    = "13331"
 
   settings = {
     "git.autofetch": true,
