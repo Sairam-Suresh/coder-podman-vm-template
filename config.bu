@@ -185,7 +185,7 @@ storage:
             "no_proxy=$${PODMAN_NO_PROXY}"
           ]
           CONF
-          
+
           cat > "$CORE_HOME/.config/containers/registries.conf" <<REG
           unqualified-search-registries = ["docker.io", "ghcr.io"]
           REG
@@ -207,6 +207,7 @@ storage:
             -v /run/user/1000/podman/podman.sock:/var/run/docker.sock \
             -v /var/home/coder:/home/coder:Z \
             -v /opt/coder/agent.sh:/opt/coder/agent.sh:ro,z \
+            -e PATH="/home/coder/.local/bin:/home/coder/.local/bin:/usr/local/bin:/usr/bin:/bin:/usr/local/games:/usr/games" \
             -e CODER_AGENT_TOKEN="$${CODER_AGENT_TOKEN}" \
             -e CODER_AGENT_URL="$${CODER_AGENT_URL}" \
             -e HTTP_PROXY="$${HTTP_PROXY}" \
