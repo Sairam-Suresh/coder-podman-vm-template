@@ -22,7 +22,6 @@ provider "libvirt" {
 data "coder_provisioner" "me" {}
 data "coder_workspace" "me" {}
 data "coder_workspace_owner" "me" {}
-data "coder_task" "me" {}
 data "coder_external_auth" "github" {
    id = "github"
 }
@@ -488,30 +487,8 @@ module "copilot" {
   count  = data.coder_workspace.me.start_count
   agent_id = coder_agent.main[count.index].id
   workdir  = local.workdir
-
-  ai_prompt = data.coder_task.me.prompt
-
-  pre_install_script = <<-EOT
-    #!/bin/bash
-    set -e
-
-    if ! command -v node &> /dev/null; then
-      curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
-      sudo apt-get install -y nodejs
-    fi
-
-    export NPM_CONFIG_PREFIX="$HOME/.local"
-    mkdir -p "$NPM_CONFIG_PREFIX"
-    
-    npm config set prefix $NPM_CONFIG_PREFIX
-
-    if ! grep -q "NPM_CONFIG_PREFIX" ~/.bashrc; then
-      echo 'export NPM_CONFIG_PREFIX="$HOME/.local"' >> ~/.bashrc
-      echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
-    fi
-
-    export PATH="$NPM_CONFIG_PREFIX/bin:$PATH"
-  EOT
+  report_tasks = false
+  cli_app = true
 }
 
 module "git-commit-signing" {
@@ -550,14 +527,6 @@ module "kasmvnc" {
   agent_id            = coder_agent.main[count.index].id
   desktop_environment = "xfce"
   subdomain           = true
-}
-
-module "devcontainers-cli" {
-  source             = "registry.coder.com/coder/devcontainers-cli/coder"
-  version            = "1.1.0"
-  count              = data.coder_workspace.me.start_count
-  agent_id           = coder_agent.main[count.index].id
-  start_blocks_login = false
 }
 
 resource "coder_devcontainer" "devcontainer" {
