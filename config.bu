@@ -113,6 +113,7 @@ storage:
           compose_warning_logs = false
 
           [containers]
+          label = false
           netns = "host"
           net = "host"
           userns = "keep-id"
@@ -126,11 +127,11 @@ storage:
             "CURL_CA_BUNDLE=/etc/custom-certs/ca-bundle.crt",
             "HTTP_PROXY=http://${proxy_ip}:${proxy_port}",
             "HTTPS_PROXY=http://${proxy_ip}:${proxy_port}",
-            "ALL_PROXY=socks5h://${proxy_ip}:${proxy_port}",
+            "ALL_PROXY=http://${proxy_ip}:${proxy_port}",
             "NO_PROXY=localhost,127.0.0.1",
             "http_proxy=http://${proxy_ip}:${proxy_port}",
             "https_proxy=http://${proxy_ip}:${proxy_port}",
-            "all_proxy=socks5h://${proxy_ip}:${proxy_port}",
+            "all_proxy=http://${proxy_ip}:${proxy_port}",
             "no_proxy=localhost,127.0.0.1"
           ]
 

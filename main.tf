@@ -488,7 +488,6 @@ module "copilot" {
   agent_id = coder_agent.main[count.index].id
   workdir  = local.workdir
   report_tasks = false
-  cli_app = true
 }
 
 module "git-commit-signing" {
