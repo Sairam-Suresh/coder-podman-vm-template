@@ -545,8 +545,38 @@ module "kasmvnc" {
   subdomain           = true
 }
 
+module "devcontainers-cli" {
+  source             = "registry.coder.com/coder/devcontainers-cli/coder"
+  version            = "1.1.0"
+  count              = data.coder_workspace.me.start_count
+  agent_id           = coder_agent.main[count.index].id
+  start_blocks_login = false
+}
+
 resource "coder_devcontainer" "devcontainer" {
   count            = (data.coder_workspace.me.start_count > 0 && data.coder_parameter.enable_devcontainer.value == "true") ? 1 : 0
   agent_id         = coder_agent.main[count.index].id
   workspace_folder = local.workdir
+}
+
+module "code-server" {
+  count  = data.coder_workspace.me.start_count
+  source = "registry.coder.com/coder/code-server/coder"
+  version = "~> 1.0"
+  folder = local.workdir
+  extensions = ["catppuccin.catppuccin-vsc-icons", "github.vscode-pull-request-github", "catppuccin.catppuccin-vsc"]
+
+  open_in = "tab"
+
+  settings = {
+    "git.autofetch": true,
+    "git.enableSmartCommit": true,
+    "git.confirmSync": false,
+    "workbench.iconTheme": "catppuccin-mocha",
+    "workbench.colorTheme": "Catppuccin Mocha"
+  }
+
+  subdomain = true
+  agent_id  = coder_devcontainer.devcontainer[count.index].subagent_id
+  order     = 1
 }
