@@ -197,24 +197,7 @@ storage:
           fi
 
           touch "$CERT_DIR/root.crt" "$CERT_DIR/intermed.crt"
-
-          # Force generation of the system CA bundle to eliminate race conditions
-          /usr/bin/update-ca-trust extract
-          
-          SYSTEM_CA="/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.crt"
-          
-          # Wait until the system CA bundle exists AND has contents (size > 0)
-          until [ -s "$SYSTEM_CA" ]; do
-            echo "Waiting for system CA bundle to fully populate..."
-            sleep 1
-          done
-          
-          cp "$SYSTEM_CA" "$CERT_DIR/ca-bundle.crt"
-          
-          echo "" >> "$CERT_DIR/ca-bundle.crt"
-          cat "$CERT_DIR/root.crt" >> "$CERT_DIR/ca-bundle.crt"
-          echo "" >> "$CERT_DIR/ca-bundle.crt"
-          cat "$CERT_DIR/intermed.crt" >> "$CERT_DIR/ca-bundle.crt"
+          cat /etc/pki/ca-trust/extracted/pem/tls-ca-bundle.crt "$CERT_DIR/root.crt" "$CERT_DIR/intermed.crt" > "$CERT_DIR/ca-bundle.crt" 2>/dev/null || true
 
     - path: /etc/containers/systemd/users/1000/coder-agent.container
       mode: 0644
@@ -240,7 +223,6 @@ storage:
           Environment=HTTP_PROXY=http://${proxy_ip}:${proxy_port}
           Environment=HTTPS_PROXY=http://${proxy_ip}:${proxy_port}
           Environment=NO_PROXY=localhost,127.0.0.1
-          Environment=NPM_CONFIG_PREFIX=/home/coder/.local
           EnvironmentFile=/opt/coder/agent.env
           Exec=/opt/coder/agent.sh
           Pull=always
