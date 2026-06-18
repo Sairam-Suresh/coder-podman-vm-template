@@ -297,7 +297,7 @@ systemd:
         [Unit]
         Description=Initialize Workspace and Persistent Home
         Requires=var-home.mount
-        After=var-home.mount network-online.target
+        After=var-home.mount network-online.target coreos-update-ca-trust.service
         Wants=network-online.target
         ConditionFirstBoot=yes
 
