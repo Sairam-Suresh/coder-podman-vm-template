@@ -198,11 +198,18 @@ storage:
 
           touch "$CERT_DIR/root.crt" "$CERT_DIR/intermed.crt"
 
-          if [ -f /etc/pki/ca-trust/extracted/pem/tls-ca-bundle.crt ]; then
-            cp /etc/pki/ca-trust/extracted/pem/tls-ca-bundle.crt "$CERT_DIR/ca-bundle.crt"
-          else
-            touch "$CERT_DIR/ca-bundle.crt"
-          fi
+          # Force generation of the system CA bundle to eliminate race conditions
+          /usr/bin/update-ca-trust extract
+          
+          SYSTEM_CA="/etc/pki/tls/certs/ca-bundle.crt"
+          
+          # Wait until the system CA bundle exists AND has contents (size > 0)
+          until [ -s "$SYSTEM_CA" ]; do
+            echo "Waiting for system CA bundle to fully populate..."
+            sleep 1
+          done
+          
+          cp "$SYSTEM_CA" "$CERT_DIR/ca-bundle.crt"
           
           echo "" >> "$CERT_DIR/ca-bundle.crt"
           cat "$CERT_DIR/root.crt" >> "$CERT_DIR/ca-bundle.crt"
