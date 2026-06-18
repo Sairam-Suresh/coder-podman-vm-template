@@ -197,7 +197,7 @@ storage:
           fi
 
           touch "$CERT_DIR/root.crt" "$CERT_DIR/intermed.crt"
-          cat /etc/pki/ca-trust/extracted/pem/tls-ca-bundle.crt "$CERT_DIR/root.crt" "$CERT_DIR/intermed.crt" > "$CERT_DIR/ca-bundle.crt" 2>/dev/null || true
+          cat "/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.crt" "$CERT_DIR/root.crt" "$CERT_DIR/intermed.crt" > "$CERT_DIR/ca-bundle.crt" 2>/dev/null || true
 
     - path: /etc/containers/systemd/users/1000/coder-agent.container
       mode: 0644
