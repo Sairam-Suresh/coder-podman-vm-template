@@ -201,7 +201,7 @@ storage:
           # Force generation of the system CA bundle to eliminate race conditions
           /usr/bin/update-ca-trust extract
           
-          SYSTEM_CA="/etc/pki/tls/certs/ca-bundle.crt"
+          SYSTEM_CA="/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.crt"
           
           # Wait until the system CA bundle exists AND has contents (size > 0)
           until [ -s "$SYSTEM_CA" ]; do
