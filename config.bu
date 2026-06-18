@@ -196,8 +196,9 @@ storage:
             echo "Failed to download intermediate certificate via SOCKS5; skipping"
           fi
 
-          touch "$CERT_DIR/root.crt" "$CERT_DIR/intermed.crt"
-          cat /etc/pki/ca-trust/extracted/pem/tls-ca-bundle.crt "$CERT_DIR/root.crt" "$CERT_DIR/intermed.crt" > "$CERT_DIR/ca-bundle.crt" 2>/dev/null || true
+          p11-kit extract --format=pem-bundle --filter=ca-anchors --purpose=server-auth $CERT_DIR/basecerts.crt
+
+          cat "$CERT_DIR/basecerts.crt" "$CERT_DIR/root.crt" "$CERT_DIR/intermed.crt" > "$CERT_DIR/ca-bundle.crt" 2>/dev/null || true
 
     - path: /etc/containers/systemd/users/1000/coder-agent.container
       mode: 0644
@@ -218,13 +219,12 @@ storage:
           Volume=/run/user/1000/podman/podman.sock:/var/run/docker.sock
           Volume=/var/home/coder:/home/coder:z
           Volume=/opt/coder/agent.sh:/opt/coder/agent.sh:ro,z
-          Environment=PATH=/home/coder/.local/bin:/home/coder/.local/bin:/usr/local/bin:/usr/bin:/bin:/usr/local/games:/usr/games
           Environment=CONTAINER_HOST=unix:///var/run/docker.sock
           Environment=HTTP_PROXY=http://${proxy_ip}:${proxy_port}
           Environment=HTTPS_PROXY=http://${proxy_ip}:${proxy_port}
           Environment=NO_PROXY=localhost,127.0.0.1
           EnvironmentFile=/opt/coder/agent.env
-          Exec=/opt/coder/agent.sh
+          Exec=bash /opt/coder/agent.sh
           Pull=always
 
           [Service]
