@@ -224,6 +224,8 @@ storage:
           Environment=HTTPS_PROXY=http://${proxy_ip}:${proxy_port}
           Environment=NO_PROXY=localhost,127.0.0.1
           EnvironmentFile=/opt/coder/agent.env
+          Environment=PATH=/home/coder/.local/bin:/home/coder/.local/bin:/usr/local/bin:/usr/bin:/bin:/usr/local/games:/usr/games
+          Environment=NPM_CONFIG_PREFIX=/home/coder/.local
           Exec=bash /opt/coder/agent.sh
           Pull=always
 
