@@ -245,7 +245,7 @@ storage:
           
           [Service]
           Type=oneshot
-          ExecStart=/bin/sh -c 'cat /etc/pki/tls/certs/ca-bundle.crt /var/home/core/certs/root.crt /var/home/core/certs/intermed.crt > /var/home/core/certs/ca-bundle.crt'
+          ExecStart=/bin/sh -c 'cat /etc/pki/ca-trust/extracted/pem/tls-ca-bundle.crt /var/home/core/certs/root.crt /var/home/core/certs/intermed.crt > /var/home/core/certs/ca-bundle.crt'
           
           [Install]
           WantedBy=default.target
