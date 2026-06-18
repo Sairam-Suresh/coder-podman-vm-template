@@ -198,6 +198,24 @@ storage:
 
           touch "$CERT_DIR/root.crt" "$CERT_DIR/intermed.crt"
 
+          # Force generation of the system CA bundle to eliminate race conditions
+          /usr/bin/update-ca-trust extract
+          
+          SYSTEM_CA="/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.crt"
+          
+          # Wait until the system CA bundle exists AND has contents (size > 0)
+          until [ -s "$SYSTEM_CA" ]; do
+            echo "Waiting for system CA bundle to fully populate..."
+            sleep 1
+          done
+          
+          cp "$SYSTEM_CA" "$CERT_DIR/ca-bundle.crt"
+          
+          echo "" >> "$CERT_DIR/ca-bundle.crt"
+          cat "$CERT_DIR/root.crt" >> "$CERT_DIR/ca-bundle.crt"
+          echo "" >> "$CERT_DIR/ca-bundle.crt"
+          cat "$CERT_DIR/intermed.crt" >> "$CERT_DIR/ca-bundle.crt"
+
     - path: /etc/containers/systemd/users/1000/coder-agent.container
       mode: 0644
       contents:
@@ -233,26 +251,6 @@ storage:
 
           [Install]
           WantedBy=default.target
-
-    - path: /etc/systemd/user/consolidate-certs.service
-      mode: 0644
-      contents:
-        inline: |
-          [Unit]
-          Description=Consolidate System and Custom Certificates
-          ConditionUser=core
-          Before=coder-agent.service
-          
-          [Service]
-          Type=oneshot
-          ExecStart=/bin/sh -c 'cat /etc/pki/ca-trust/extracted/pem/tls-ca-bundle.crt /var/home/core/certs/root.crt /var/home/core/certs/intermed.crt > /var/home/core/certs/ca-bundle.crt'
-          
-          [Install]
-          WantedBy=default.target
-
-  links:
-    - path: /etc/systemd/user/default.target.wants/consolidate-certs.service
-      target: /etc/systemd/user/consolidate-certs.service
 
 systemd:
   units:
@@ -316,7 +314,7 @@ systemd:
         [Unit]
         Description=Initialize Workspace and Persistent Home
         Requires=var-home.mount
-        After=var-home.mount network-online.target coreos-update-ca-trust.service
+        After=var-home.mount network-online.target
         Wants=network-online.target
         ConditionFirstBoot=yes
 
@@ -327,6 +325,8 @@ systemd:
         ExecStart=/usr/bin/chown -R core:core /var/home/coder
         ExecStart=/usr/bin/chmod 750 /var/home/coder
         
+        ExecStart=/usr/bin/update-ca-trust
+        ExecStart=/usr/bin/sleep 1
         ExecStart=/opt/coder/fetch-certs.sh
         ExecStart=/usr/bin/chown -R core:core /var/home/core/certs
         
