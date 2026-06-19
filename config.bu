@@ -9,6 +9,10 @@ passwd:
         - sudo
         - systemd-journal
     - name: core
+      %{ if enable_nested_virt == "true" }
+      groups:
+        - kvm
+      %{ endif }
 
 storage:
   disks:
@@ -134,6 +138,9 @@ storage:
           netns = "host"
           net = "host"
           userns = "keep-id"
+          group_add = [
+            "keep-groups",
+          ]
           volumes = [
             "/var/home/core/certs/ca-bundle.crt:/etc/custom-certs/ca-bundle.crt:ro,z"
           ]
