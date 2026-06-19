@@ -216,6 +216,7 @@ storage:
           Network=host
           SecurityLabelDisable=true
           AddDevice=/dev/dri:/dev/dri
+          %{ if enable_nested_virt == "true" }AddDevice=/dev/kvm:/dev/kvm%{ endif }
           Volume=/run/user/1000/podman/podman.sock:/var/run/docker.sock
           Volume=/var/home/coder:/home/coder:z
           Volume=/opt/coder/agent.sh:/opt/coder/agent.sh:ro,z

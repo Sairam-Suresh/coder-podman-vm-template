@@ -132,6 +132,15 @@ data "coder_parameter" "enable_devcontainer" {
   mutable      = true
 }
 
+data "coder_parameter" "enable_nested_virt" {
+  type         = "bool"
+  name         = "enable_nested_virt"
+  display_name = "Enable Nested Virtualization"
+  description  = "Enable nested virtualization for the workspace VM."
+  default      = "false"
+  mutable      = true
+}
+
 data "coder_parameter" "repo_url" {
   count        = data.coder_parameter.enable_git_clone.value == "true" ? 1 : 0
   type         = "string"
@@ -165,6 +174,7 @@ data "ct_config" "ign" {
     proxy_port                  = local.proxy_port
     password_hash               = var.password_hash
     hostname                    = local.resource_name
+    enable_nested_virt          = data.coder_parameter.enable_nested_virt.value
   })
 
   strict       = true
@@ -275,6 +285,8 @@ resource "libvirt_domain" "main" {
 
   features = {
     acpi = true
+
+    nested_hv = data.coder_parameter.enable_nested_virt.value == "true" ? { state = "on" } : null
   }
 
   sys_info = [
