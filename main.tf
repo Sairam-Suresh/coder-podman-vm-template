@@ -285,8 +285,6 @@ resource "libvirt_domain" "main" {
 
   features = {
     acpi = true
-
-    nested_hv = data.coder_parameter.enable_nested_virt.value == "true" ? { state = "on" } : null
   }
 
   sys_info = [
