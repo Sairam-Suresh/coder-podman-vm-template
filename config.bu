@@ -135,6 +135,7 @@ storage:
 
           [containers]
           label = false
+          seccomp_profile = "unconfined"
           netns = "host"
           net = "host"
           userns = "keep-id"
